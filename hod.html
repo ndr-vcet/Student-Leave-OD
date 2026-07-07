@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VCET-IT | HoD Portal - Enhanced Attendance Tracking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ══ Analysis Grid ══ */
+.analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.anl-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 14px; }
+.anl-card-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--txt3); letter-spacing: .6px; }
+.anl-card-val { font-size: 20px; font-weight: 800; color: var(--txt); margin: 6px 0; }
+.anl-card-sub { font-size: 11px; color: var(--txt2); }
+.anl-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.anl-bar-fill { height: 100%; border-radius: 2px; transition: width .3s ease; }
+
+/* ══ Report Styles ══ */
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.report-card { background: var(--surface2); border-left: 4px solid var(--pri); padding: 12px; border-radius: var(--r-xs); }
+.report-card.green  { border-left-color: var(--suc); }
+.report-card.orange { border-left-color: var(--acc); }
+.report-card.red    { border-left-color: var(--dan); }
+.report-card.purple { border-left-color: var(--hod); }
+.report-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--txt3); }
+.report-value { font-size: 18px; font-weight: 800; color: var(--txt); margin-top: 4px; }
+
+/* ══ Attendance Progress Bars ══ */
+.attendance-bar { background: var(--border); border-radius: 8px; overflow: hidden; height: 24px; position: relative; margin-top: 8px; }
+.attendance-bar-fill { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; transition: width 0.3s ease; }
+.attendance-bar-fill.high { background: linear-gradient(90deg, #059669, #10b981); }
+.attendance-bar-fill.medium { background: linear-gradient(90deg, #d97706, #f59e0b); }
+.attendance-bar-fill.low { background: linear-gradient(90deg, #dc2626, #ef4444); }
+
+/* ══ Compact Table ══ */
+.compact-tbl th { padding: 7px 10px; font-size: 9px; }
+.compact-tbl td { padding: 8px 10px; font-size: 12px; }
+
+/* ══ Attendance Heatmap ══ */
+.heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.heatmap-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; cursor: pointer; transition: transform 0.2s; }
+.heatmap-cell:hover { transform: scale(1.1); }
+.heatmap-cell.excellent { background: #059669; color: white; }
+.heatmap-cell.good { background: #10b981; color: white; }
+.heatmap-cell.average { background: #f59e0b; color: white; }
+.heatmap-cell.poor { background: #ef4444; color: white; }
+.heatmap-cell.empty { background: var(--surface2); color: var(--txt3); }
+
+.mt-14 { margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<div id="toastZone"></div>
+<div class="global-loader" id="gLoader" style="display:none">
+  <div class="spinner"></div>
+  <div class="loader-txt" id="gLoaderTxt">Loading…</div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-bg" id="mReview">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-stamp text-hod"></i> Request Review</div>
+      <button class="modal-close" onclick="closeModal('mReview')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mReviewBody"></div>
+    <div class="modal-foot" id="mReviewFoot"></div>
+  </div>
+</div>
+
+<!-- REPORT GENERATION MODAL -->
+<div class="modal-bg" id="mReport">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-file-pdf text-hod"></i> Generate Academic Report</div>
+      <button class="modal-close" onclick="closeModal('mReport')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrp">
+        <label class="flbl">Report Type</label>
+        <select class="fsel" id="rType" onchange="onReportTypeChange()">
+          <option value="consolidated">Consolidated Department Report</option>
+          <option value="yearwise">Year-wise Breakdown</option>
+          <option value="studentwise">Student-wise Summary</option>
+          <option value="daterange">Date Range Report</option>
+          <option value="monthwise">Monthly Analytics</option>
+          <option value="sectionwise">Section-wise Report</option>
+          <option value="attendance">Date-wise Attendance Report</option>
+        </select>
+      </div>
+      <div id="rRangeField" style="display:none">
+        <div class="fcols2">
+          <div class="fgrp"><label class="flbl">From Date</label><input type="date" class="finp" id="rFrom"></div>
+          <div class="fgrp"><label class="flbl">To Date</label><input type="date" class="finp" id="rTo"></div>
+        </div>
+      </div>
+      <div id="rStudentField" class="fgrp" style="display:none">
+        <label class="flbl">Search Student (Reg. No / Name)</label>
+        <input type="text" class="finp" id="rStudent" placeholder="Leave empty for all">
+      </div>
+      <div id="rYearField" style="display:none">
+        <div class="fcols2">
+          <div class="fgrp"><label class="flbl">Year</label>
+            <select class="fsel" id="rYear"><option value="">All</option><option>I</option><option>II</option><option>III</option><option>IV</option></select>
+          </div>
+          <div class="fgrp"><label class="flbl">Section</label>
+            <select class="fsel" id="rSection"><option value="">All</option><option>A</option><option>B</option></select>
+          </div>
+        </div>
+      </div>
+      <div id="rMonthField" class="fgrp" style="display:none">
+        <label class="flbl">Month & Year</label>
+        <input type="month" class="finp" id="rMonth">
+      </div>
+      <div id="rAttendanceField" class="fgrp" style="display:none">
+        <label class="flbl">Select Date</label>
+        <input type="date" class="finp" id="rAttendanceDate">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Status Filter (Optional)</label>
+        <select class="fsel" id="rStatus">
+          <option value="">All Status</option>
+          <option>Approved</option><option>Rejected</option><option>Pending</option><option>Forwarded</option><option>HoD Review</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('mReport')">Cancel</button>
+      <button class="btn btn-hod" onclick="generateHoDReport()"><i class="fas fa-file-download"></i> Generate PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appWrap">
+  <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sb-logo" style="background: linear-gradient(135deg, #4c1d95, #7c3aed);">IT</div>
+      <div>
+        <div class="sb-brand-name">VCET Leave Portal</div>
+        <div class="sb-brand-sub">HoD Dashboard</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-foot">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar" style="background: linear-gradient(135deg, #4c1d95, #7c3aed);">H</div>
+        <div style="min-width:0">
+          <div class="sb-uname" id="sbName">—</div>
+          <div class="sb-urole" id="sbRole">HoD</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div id="mainArea">
+    <div class="topbar">
+      <button class="tb-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <div class="tb-title" id="tbTitle">Dashboard</div>
+      <div class="tb-actions">
+        <button class="tb-btn" onclick="refreshCurrentPage()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+        <div class="theme-pill" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="themeIco"></i>
+          <span id="themeTxt">Dark</span>
+        </div>
+        <button class="tb-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
+      </div>
+    </div>
+    <div class="page-body" id="pageBody"></div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════
+   SESSION GUARD
+══════════════════════════════════════════ */
+let user = JSON.parse(sessionStorage.getItem('vcet_user') || 'null');
+if (!user || user.role !== 'HoD') { window.location.href = 'index.html'; }
+
+let currentPage    = '';
+let allRequestsData = [];
+let allStudentsData = [];
+let allAbsentData = [];
+
+/**
+ * absReportCache — holds the last generated date-wise absentee report
+ * so exportAbsenteesAcademicPDF() can read it without inline data.
+ */
+let absReportCache = {
+  date: '', year: '', section: '',
+  data: [],
+  totalStudents: 0, totalPresent: 0, totalAbsent: 0
+};
+
+const NAV_ITEMS = [
+  { id: 'dash',         icon: 'fa-home',           label: 'Dashboard'           },
+  { id: 'pending',      icon: 'fa-stamp',          label: 'Pending Approvals'   },
+  { id: 'attendance',   icon: 'fa-calendar-check', label: 'Date-wise Attendance' },
+  { id: 'trends',       icon: 'fa-chart-line',     label: 'Attendance Trends'   },
+  { id: 'consolidated', icon: 'fa-chart-bar',      label: 'Consolidated Report' },
+  { id: 'yearwise',     icon: 'fa-layer-group',    label: 'Year-wise Analysis'  },
+  { id: 'studentwise',  icon: 'fa-user-graduate',  label: 'Student Reports'     },
+  { id: 'allreqs',      icon: 'fa-list-alt',       label: 'All Requests'        },
+  { id: 'profile',      icon: 'fa-user-circle',    label: 'My Profile'          }
+];
+
+/* ══════════════════════════════════════════
+   DATE HELPERS  ← single source of truth
+══════════════════════════════════════════ */
+
+/**
+ * Parse any date value and return a clean JS Date object
+ * using ONLY the date portion (YYYY-MM-DD) to avoid UTC-offset issues.
+ * Returns null if unparseable.
+ */
+function parseLocalDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  // Already YYYY-MM-DD (possibly with T… suffix)
+  const iso = s.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);   // local midnight, no timezone offset
+  }
+  return null;
+}
+
+/**
+ * Format any date value → DD/MM/YYYY  (Indian date, no time).
+ * Works on ISO strings, JS Date objects, anything with a YYYY-MM-DD prefix.
+ */
+function fmtDatePDF(val) {
+  if (!val) return '—';
+  const dt = parseLocalDate(val);
+  if (!dt) return String(val).slice(0, 10) || '—';
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yy = dt.getFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+
+/** Today as DD/MM/YYYY — no time component. */
+function todayIN() {
+  const n = new Date();
+  return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`;
+}
+
+/** Human-readable date for display (e.g. "Friday, 16 May 2025"). */
+function fmtDateHuman(isoStr) {
+  const dt = parseLocalDate(isoStr);
+  if (!dt) return isoStr;
+  return dt.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+/* ══════════════════════════════════════════
+   ATTENDANCE CALCULATION ENGINE
+══════════════════════════════════════════ */
+
+/**
+ * Calculate attendance for a specific date
+ * @param {string} dateStr - Date in YYYY-MM-DD format
+ * @param {Array} students - Array of all students
+ * @param {Array} requests - Array of all leave requests
+ * @param {Array} absents - Array of all absent entries
+ * @param {string} year - Optional year filter
+ * @param {string} section - Optional section filter
+ * @returns {Object} Attendance data grouped by class
+ */
+function calculateDatewiseAttendance(dateStr, students, requests, absents, year = '', section = '') {
+  // Filter students by year/section if specified
+  let classStudents = students;
+  if (year) classStudents = classStudents.filter(s => s.Year === year);
+  if (section) classStudents = classStudents.filter(s => s.Section === section);
+
+  // Group by year and section
+  const classes = {};
+  classStudents.forEach(s => {
+    const key = `${s.Year}-${s.Section}`;
+    if (!classes[key]) {
+      classes[key] = {
+        year: s.Year,
+        section: s.Section,
+        totalStudents: 0,
+        presentCount: 0,
+        absentCount: 0,
+        odCount: 0,
+        leaveCount: 0,
+        students: []
+      };
+    }
+    classes[key].totalStudents++;
+  });
+
+  // Process each student
+  classStudents.forEach(s => {
+    const key = `${s.Year}-${s.Section}`;
+    const cls = classes[key];
+
+    // Check for approved leave/OD on this date
+    const leaveOnDate = requests.find(r => {
+      if (r.RegNo !== s.RegNo) return false;
+      if (r.FinalStatus !== 'Approved') return false;
+      
+      const fromDate = parseLocalDate(r.FromDate);
+      const toDate = parseLocalDate(r.ToDate);
+      const checkDate = parseLocalDate(dateStr);
+      
+      return checkDate && fromDate && toDate && 
+             checkDate >= fromDate && checkDate <= toDate;
+    });
+
+    if (leaveOnDate) {
+      if (leaveOnDate.LeaveType === 'OD') {
+        cls.odCount++;
+        cls.presentCount++; // OD counts as present
+        cls.students.push({
+          RegNo: s.RegNo,
+          StudentName: s.StudentName,
+          year: s.Year,
+          section: s.Section,
+          status: 'OD',
+          reason: leaveOnDate.Reason
+        });
+      } else {
+        cls.leaveCount++;
+        cls.students.push({
+          RegNo: s.RegNo,
+          StudentName: s.StudentName,
+          year: s.Year,
+          section: s.Section,
+          status: 'Leave',
+          reason: leaveOnDate.Reason
+        });
+      }
+    } else {
+      // Check if marked absent
+      const absent = absents.find(a => {
+        if (a.RegNo !== s.RegNo) return false;
+        const absDate = parseLocalDate(a.Date);
+        const checkDate = parseLocalDate(dateStr);
+        return absDate && checkDate && absDate.getTime() === checkDate.getTime();
+      });
+
+      if (absent) {
+        cls.absentCount++;
+        cls.students.push({
+          RegNo: s.RegNo,
+          StudentName: s.StudentName,
+          year: s.Year,
+          section: s.Section,
+          status: 'Absent',
+          reason: absent.Reason || 'No reason provided'
+        });
+      } else {
+        cls.presentCount++;
+        cls.students.push({
+          RegNo: s.RegNo,
+          StudentName: s.StudentName,
+          year: s.Year,
+          section: s.Section,
+          status: 'Present',
+          reason: ''
+        });
+      }
+    }
+  });
+
+  return Object.values(classes);
+}
+
+/**
+ * Calculate attendance percentage for a class
+ */
+function getAttendancePercentage(presentCount, totalStudents) {
+  if (totalStudents === 0) return 0;
+  return ((presentCount / totalStudents) * 100).toFixed(2);
+}
+
+/**
+ * Get attendance status class for styling
+ */
+function getAttendanceClass(percentage) {
+  if (percentage >= 90) return 'high';
+  if (percentage >= 75) return 'medium';
+  return 'low';
+}
+
+/* ══════════════════════════════════════════
+   SIDEBAR / NAV
+══════════════════════════════════════════ */
+function buildSidebar() {
+  $('sbAvatar').textContent = getInitials(user.name);
+  $('sbName').textContent   = user.name;
+  $('sbRole').textContent   = user.role;
+  let html = `<div class="nav-sec-label">HoD Portal</div>`;
+  NAV_ITEMS.forEach(item => {
+    html += `<button class="nav-link" id="nl_${item.id}" onclick="nav('${item.id}')">
+      <i class="fas ${item.icon}"></i><span>${item.label}</span>
+    </button>`;
+  });
+  $('sidebarNav').innerHTML = html;
+}
+
+function nav(pageId) {
+  currentPage = pageId;
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  const el = $('nl_' + pageId);
+  if (el) el.classList.add('active');
+  const titles = {
+    dash: 'HoD Dashboard', 
+    pending: 'Pending Approvals',
+    attendance: 'Date-wise Attendance',
+    trends: 'Attendance Trends',
+    consolidated: 'Consolidated Department Report', 
+    yearwise: 'Year-wise Analysis',
+    studentwise: 'Student-wise Reports', 
+    allreqs: 'All Requests', 
+    profile: 'My Profile'
+  };
+  $('tbTitle').textContent = titles[pageId] || pageId;
+  closeSidebar();
+  loadPage(pageId);
+}
+
+function refreshCurrentPage() { if (currentPage) loadPage(currentPage); }
+
+function loadPage(id) {
+  destroyCharts();
+  const pb = $('pageBody');
+  pb.innerHTML = `<div class="sk-block mb-14">${skeleton()}</div><div class="sk-block">${skeleton(5)}</div>`;
+  const pages = {
+    dash: renderDash, 
+    pending: renderPending,
+    attendance: renderDatewiseAttendance,
+    trends: renderAttendanceTrends,
+    consolidated: renderConsolidated, 
+    yearwise: renderYearwise,
+    studentwise: renderStudentwise, 
+    allreqs: renderAllRequests, 
+    profile: renderProfile
+  };
+  const fn = pages[id];
+  if (fn) fn();
+  else pb.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>Page not found</p></div>';
+}
+
+function doLogout() {
+  if (!confirm('Sign out from HoD Portal?')) return;
+  sessionStorage.removeItem('vcet_user');
+  window.location.href = 'index.html';
+}
+
+/* ══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+async function renderDash() {
+  const pb = $('pageBody');
+  try {
+    const res = await api('hod.getDashboard', {});
+    const d   = res.data;
+    const mt  = d.monthTrend || { labels: [], leave: [], od: [], medical: [] };
+
+    pb.innerHTML = `
+      <div class="welcome">
+        <div class="welcome-z">
+          <div class="welcome-title">HoD Dashboard — IT Department 🏛️</div>
+          <div class="welcome-sub">Department-wide leave & OD management oversight</div>
+          <div class="welcome-date"><i class="fas fa-calendar-day"></i>
+            ${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+          </div>
+          <div class="welcome-actions">
+            <button class="btn btn-hod" onclick="nav('pending')"><i class="fas fa-stamp"></i> Review Pending</button>
+            <button class="btn btn-acc" onclick="nav('attendance')"><i class="fas fa-calendar-check"></i> Attendance Report</button>
+            <button class="btn btn-pri" onclick="openModal('mReport')"><i class="fas fa-file-pdf"></i> Generate Report</button>
+          </div>
+        </div>
+      </div>
+
+      ${d.hodPending > 0 ? `
+      <div class="hod-alert mb-20">
+        <div class="hod-alert-icon"><i class="fas fa-exclamation-circle"></i></div>
+        <div class="hod-alert-text">
+          <div class="hod-alert-title">${d.hodPending} Request(s) Pending Your Final Approval</div>
+          <div class="hod-alert-sub">Approved by Chairperson, awaiting your final authorization</div>
+        </div>
+        <button class="btn btn-hod btn-sm" onclick="nav('pending')" style="flex-shrink:0"><i class="fas fa-arrow-right"></i></button>
+      </div>` : ''}
+
+      <div class="stats-grid col4 mb-20">
+        ${sCard('Total Students', d.totalStudents, 'fa-user-graduate', 'sc-blue')}
+        ${sCard('Total Requests', d.totalRequests, 'fa-file-alt', 'sc-cyan')}
+        ${sCard('Fully Approved', d.approved, 'fa-check-circle', 'sc-green')}
+        ${sCard('Pending Action', d.hodPending, 'fa-stamp', 'sc-purple')}
+      </div>
+      <div class="stats-grid col3 mb-20">
+        ${sCard('Pending (M/C)', d.pending, 'fa-clock', 'sc-orange')}
+        ${sCard('Rejected', d.rejected, 'fa-times-circle', 'sc-red')}
+        ${sCard('Absent Entries', d.totalAbsent, 'fa-user-slash', 'sc-red')}
+      </div>
+
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-area"></i> 6-Month Trend</div></div>
+          <div class="card-body"><div class="chart-wrap-tall"><canvas id="hodTrend"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Overall Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="hodDist"></canvas></div></div>
+        </div>
+      </div>`;
+
+    charts.hodTrend = new Chart($('hodTrend'), {
+      type: 'bar',
+      data: {
+        labels: mt.labels,
+        datasets: [
+          { label:'Leave',   data: mt.leave,   backgroundColor:'rgba(15,39,68,.72)',  borderRadius:5 },
+          { label:'OD',      data: mt.od,      backgroundColor:'rgba(224,92,26,.72)', borderRadius:5 },
+          { label:'Medical', data: mt.medical, backgroundColor:'rgba(5,150,105,.72)', borderRadius:5 }
+        ]
+      },
+      options: chartDefaultOpts()
+    });
+    charts.hodDist = new Chart($('hodDist'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Approved','HoD Review','Pending','Rejected'],
+        datasets: [{
+          data: [d.approved, d.hodPending||0, d.pending, d.rejected],
+          backgroundColor: ['rgba(5,150,105,.8)','rgba(124,58,237,.8)','rgba(217,119,6,.8)','rgba(220,38,38,.8)'],
+          borderWidth: 0, hoverOffset: 5
+        }]
+      },
+      options: doughnutOpts()
+    });
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   PENDING APPROVALS
+══════════════════════════════════════════ */
+async function renderPending() {
+  const pb = $('pageBody');
+  try {
+    const res  = await api('hod.getPending', {});
+    const reqs = res.data || [];
+    allRequestsData = reqs;
+    window._pendingData = reqs;
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div>
+          <div class="sec-title"><i class="fas fa-stamp text-hod"></i> Pending Final Approvals</div>
+          <div class="sec-sub">${reqs.length} request(s) from Chairperson waiting your decision</div>
+        </div>
+      </div>
+
+      ${reqs.length > 0 ? `
+      <div class="hod-alert mb-14">
+        <div class="hod-alert-icon"><i class="fas fa-clock"></i></div>
+        <div class="hod-alert-text">
+          <div class="hod-alert-title">${reqs.length} Action(s) Required</div>
+          <div class="hod-alert-sub">These have been approved by both Mentor and Chairperson. Your approval makes them official.</div>
+        </div>
+        <button class="btn btn-suc btn-sm" onclick="approveAllPending()"><i class="fas fa-check-double"></i> Approve All</button>
+      </div>` : ''}
+
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'pendTbl')">
+            <option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'pendTbl')">
+            <option value="">All Years</option><option value="I">Year I</option><option value="II">Year II</option><option value="III">Year III</option><option value="IV">Year IV</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search student / Reg. No…" oninput="searchTbl(this.value,'pendTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl" id="pendTbl">
+            <thead><tr>
+              <th>ID</th><th>Student</th><th>Yr/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th>
+              <th>Reason</th><th>Mentor ✓</th><th>Chair ✓</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              ${reqs.length === 0
+                ? `<tr><td colspan="11"><div class="empty-state"><i class="fas fa-check-double text-suc"></i><p>No pending requests!</p></div></td></tr>`
+                : reqs.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.LeaveType}">
+                    <td class="fw7 text-hod">${r.RequestID}</td>
+                    <td><div class="fw6">${r.StudentName}</div><div style="font-size:10px;color:var(--txt3)">${r.RegNo}</div></td>
+                    <td><span class="chip">${r.Year||'?'}-${r.Section||'?'}</span></td>
+                    <td>${typeBadge(r.LeaveType)}</td>
+                    <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                    <td><span class="chip">${r.TotalDays}d</span></td>
+                    <td><span class="ellipsis" style="display:block;max-width:120px" title="${r.Reason}">${r.Reason}</span></td>
+                    <td style="font-size:11px;color:var(--suc);font-weight:700">✓ ${r.MentorStatus}</td>
+                    <td style="font-size:11px;color:var(--suc);font-weight:700">✓ ${r.ChairpersonStatus}</td>
+                    <td>
+                      <div style="display:flex;gap:4px">
+                        <button class="btn btn-suc btn-xs" onclick="quickActHoD('${r.RequestID}','Approved')" title="Approve"><i class="fas fa-check"></i></button>
+                        <button class="btn btn-dan btn-xs" onclick="quickActHoD('${r.RequestID}','Rejected')" title="Reject"><i class="fas fa-times"></i></button>
+                        <button class="btn btn-ghost btn-xs" onclick="openHoDReview('${r.RequestID}')" title="Details"><i class="fas fa-eye"></i></button>
+                      </div>
+                    </td>
+                  </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+async function approveAllPending() {
+  const reqs = window._pendingData || [];
+  if (!reqs.length) { toast('No pending requests','war'); return; }
+  if (!confirm(`Final approve all ${reqs.length} request(s)? This action cannot be undone.`)) return;
+  showG('Processing all approvals…');
+  try {
+    for (const r of reqs) {
+      await api('hod.actOnRequest', { requestId: r.RequestID, action:'Approved', remarks:'Batch approved by HoD' });
+    }
+    toast(`${reqs.length} request(s) approved!`, 'suc');
+    renderPending();
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+  finally { hideG(); }
+}
+
+async function quickActHoD(reqId, action) {
+  showG((action === 'Approved' ? 'Approving' : 'Rejecting') + '…');
+  try {
+    await api('hod.actOnRequest', { requestId: reqId, action, remarks: action });
+    toast(`Request ${action.toLowerCase()}!`, action === 'Approved' ? 'suc' : 'inf');
+    renderPending();
+  } catch (e) { toast(e.message, 'err'); }
+  finally { hideG(); }
+}
+
+async function openHoDReview(reqId) {
+  const req = (window._pendingData || []).find(r => r.RequestID === reqId);
+  if (!req) { toast('Request not found','err'); return; }
+  $('mReviewBody').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Request ID</div>
+      <div style="font-size:22px;font-weight:800;color:var(--pri)">${req.RequestID}</div>
+    </div>
+    <div class="info-grid" style="margin-bottom:14px">
+      <div class="info-item"><label>Student Name</label><p>${req.StudentName}</p></div>
+      <div class="info-item"><label>Reg. No</label><p>${req.RegNo}</p></div>
+      <div class="info-item"><label>Year / Section</label><p>${req.Year||'—'} / ${req.Section||'—'}</p></div>
+      <div class="info-item"><label>Type</label><p>${req.LeaveType}</p></div>
+      <div class="info-item"><label>From</label><p>${fmtDate(req.FromDate)}</p></div>
+      <div class="info-item"><label>To</label><p>${fmtDate(req.ToDate)}</p></div>
+      <div class="info-item"><label>Days</label><p>${req.TotalDays}</p></div>
+      <div class="info-item"><label>Applied</label><p>${fmtDate(req.ApplyDate)}</p></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div class="flbl" style="margin-bottom:5px">Reason</div>
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:11px;font-size:13px;border:1px solid var(--border)">${req.Reason}</div>
+    </div>
+    <div class="divider"></div>
+    <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Approval Trail</div>
+    <div class="timeline">
+      <div class="tl-item ${req.MentorStatus.toLowerCase()}">
+        <div class="tl-date">Mentor: ${req.MentorStatus}</div>
+        <div class="tl-text">${req.MentorRemarks||'—'}</div>
+      </div>
+      <div class="tl-item ${req.ChairpersonStatus.toLowerCase()}">
+        <div class="tl-date">Chairperson: ${req.ChairpersonStatus}</div>
+        <div class="tl-text">${req.ChairpersonRemarks||'—'}</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="fgrp">
+      <label class="flbl">Your Remarks (Optional)</label>
+      <textarea class="ftxt" id="hodRemarks" style="min-height:60px" placeholder="Add your final remarks…"></textarea>
+    </div>`;
+  $('mReviewFoot').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal('mReview')">Close</button>
+    <button class="btn btn-dan" onclick="finalActHoD('${reqId}','Rejected')"><i class="fas fa-times"></i> Reject</button>
+    <button class="btn btn-suc" onclick="finalActHoD('${reqId}','Approved')"><i class="fas fa-stamp"></i> Final Approve</button>`;
+  openModal('mReview');
+}
+
+async function finalActHoD(reqId, action) {
+  const remarks = ($('hodRemarks') || {}).value || '';
+  closeModal('mReview');
+  showG((action === 'Approved' ? 'Finalizing approval' : 'Rejecting') + '…');
+  try {
+    await api('hod.actOnRequest', { requestId: reqId, action, remarks });
+    toast(`Request ${action.toLowerCase()}!`, action === 'Approved' ? 'suc' : 'inf');
+    renderPending();
+  } catch (e) { toast(e.message, 'err'); }
+  finally { hideG(); }
+}
+
+/* ══════════════════════════════════════════
+   DATE-WISE ATTENDANCE PAGE (ENHANCED)
+══════════════════════════════════════════ */
+async function renderDatewiseAttendance() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head">
+      <div>
+        <div class="sec-title"><i class="fas fa-calendar-check"></i> Date-wise Class Attendance Report</div>
+        <div class="sec-sub">Comprehensive attendance tracking with OD, Leave, and Absent records</div>
+      </div>
+    </div>
+    <div class="card mb-14">
+      <div class="card-head"><div class="card-title"><i class="fas fa-filter"></i> Select Date & Filters</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:flex-end">
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">Select Date</label>
+            <input type="date" class="finp" id="absDate" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">Year</label>
+            <select class="fsel" id="absYear">
+              <option value="">All Years</option>
+              <option>I</option><option>II</option><option>III</option><option>IV</option>
+            </select>
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">Section</label>
+            <select class="fsel" id="absSec">
+              <option value="">All Sections</option>
+              <option>A</option><option>B</option>
+            </select>
+          </div>
+          <button class="btn btn-hod" onclick="loadDatewiseAttendance()">
+            <i class="fas fa-search"></i> Generate Report
+          </button>
+          <button class="btn btn-acc" onclick="loadDatewiseAttendance(true)">
+            <i class="fas fa-file-pdf"></i> Export PDF
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="absResult">
+      <div class="empty-state">
+        <i class="fas fa-calendar"></i>
+        <p>Select date and click "Generate Report" to view attendance</p>
+      </div>
+    </div>`;
+}
+
+async function loadDatewiseAttendance(exportPdf = false) {
+  const absDate = $('absDate').value;
+  const absYear = $('absYear').value;
+  const absSec  = $('absSec').value;
+
+  if (!absDate) { toast('Please select a date','war'); return; }
+
+  const container = $('absResult');
+  container.innerHTML = skeleton(4);
+
+  try {
+    // ── FIXED: fetch all students + all absents (not mentor-scoped) ──
+    const [requestsRes, studentsRes, absentsRes] = await Promise.all([
+      api('hod.getAllRequests', {}),
+      api('hod.getStudentReport', {}),        // all students from STUDENT_MASTER
+      api('chair.getAllAbsents')              // all absent entries, not filtered by mentorId
+    ]);
+
+    const allReqs      = requestsRes.data || [];
+    const allStudents  = studentsRes.data  || [];
+    const allAbsents   = absentsRes.data   || [];
+
+    const data = calculateDatewiseAttendance(
+      absDate,
+      allStudents,
+      allReqs,
+      allAbsents,
+      absYear,
+      absSec
+    );
+
+    const totalStudents = data.reduce((s,i) => s + (i.totalStudents || 0), 0);
+    const totalAbsent   = data.reduce((s,i) => s + (i.absentCount   || 0), 0);
+    const totalPresent  = data.reduce((s,i) => s + (i.presentCount  || 0), 0);
+    const totalOD       = data.reduce((s,i) => s + (i.odCount       || 0), 0);
+    const totalLeave    = data.reduce((s,i) => s + (i.leaveCount    || 0), 0);
+    const presentPct    = getAttendancePercentage(totalPresent, totalStudents);
+    const absentPct     = getAttendancePercentage(totalAbsent,  totalStudents);
+
+    absReportCache = {
+      date: absDate, year: absYear, section: absSec,
+      data, totalStudents, totalPresent, totalAbsent, totalOD, totalLeave
+    };
+
+    if (exportPdf) {
+      exportAttendancePDF();
+      container.innerHTML = skeleton(4);
+      setTimeout(() => loadDatewiseAttendance(false), 500);
+      return;
+    }
+
+    const displayDate     = fmtDateHuman(absDate);
+    const attendanceClass = getAttendanceClass(parseFloat(presentPct));
+
+    container.innerHTML = `
+      <div class="report-grid">
+        <div class="report-card">
+          <div class="report-label">Report Date</div>
+          <div class="report-value" style="font-size:14px">${displayDate}</div>
+        </div>
+        <div class="report-card green">
+          <div class="report-label">Total Students</div>
+          <div class="report-value">${totalStudents}</div>
+        </div>
+        <div class="report-card green">
+          <div class="report-label">Present</div>
+          <div class="report-value">${totalPresent}</div>
+          <div style="font-size:11px;color:var(--suc);margin-top:4px">${presentPct}%</div>
+        </div>
+        <div class="report-card orange">
+          <div class="report-label">On Duty (OD)</div>
+          <div class="report-value">${totalOD}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:4px">Counted as Present</div>
+        </div>
+        <div class="report-card orange">
+          <div class="report-label">On Leave</div>
+          <div class="report-value">${totalLeave}</div>
+        </div>
+        <div class="report-card red">
+          <div class="report-label">Absent</div>
+          <div class="report-value">${totalAbsent}</div>
+          <div style="font-size:11px;color:var(--dan);margin-top:4px">${absentPct}%</div>
+        </div>
+      </div>
+
+      <div class="card mt-14">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-chart-bar"></i> Overall Attendance</div>
+        </div>
+        <div class="card-body">
+          <div class="attendance-bar">
+            <div class="attendance-bar-fill ${attendanceClass}" style="width: ${presentPct}%">
+              ${presentPct}% Present
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-14">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-chart-bar"></i> Class-wise Breakdown</div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl">
+            <thead><tr>
+              <th>Year</th><th>Section</th><th>Total</th><th>Present</th>
+              <th>OD</th><th>Leave</th><th>Absent</th><th>Attendance %</th>
+            </tr></thead>
+            <tbody>
+              ${data.map(item => {
+                const pct = getAttendancePercentage(item.presentCount, item.totalStudents);
+                const pctClass = getAttendanceClass(parseFloat(pct));
+                return `<tr>
+                  <td class="fw7">${item.year} Year</td>
+                  <td class="fw7">Section ${item.section}</td>
+                  <td>${item.totalStudents}</td>
+                  <td class="text-suc fw6">${item.presentCount}</td>
+                  <td><span class="chip">${item.odCount||0}</span></td>
+                  <td><span class="chip">${item.leaveCount||0}</span></td>
+                  <td class="text-dan fw6">${item.absentCount}</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="attendance-bar" style="flex:1">
+                        <div class="attendance-bar-fill ${pctClass}" style="width:${pct}%;font-size:10px">
+                          ${pct}%
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mt-14">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-users"></i> Student-wise Details</div>
+        </div>
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'stuAbsTbl')">
+            <option value="">All Status</option>
+            <option value="Present">Present</option>
+            <option value="Absent">Absent</option>
+            <option value="OD">On Duty (OD)</option>
+            <option value="Leave">Leave</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search student…" oninput="searchTbl(this.value,'stuAbsTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl" id="stuAbsTbl">
+            <thead><tr>
+              <th>S.No</th><th>Reg. No</th><th>Name</th><th>Year/Sec</th><th>Status</th><th>Reason / Remarks</th>
+            </tr></thead>
+            <tbody>
+              ${(() => {
+                let students = [];
+                data.forEach(item => { if (item.students) students = students.concat(item.students); });
+                if (!students.length) {
+                  return `<tr><td colspan="6"><div class="empty-state"><p>No student data</p></div></td></tr>`;
+                }
+                return students.map((s, idx) => {
+                  const badge = s.status === 'Present'
+                    ? `<span class="badge badge-approved">Present</span>`
+                    : s.status === 'OD'
+                      ? `<span class="badge badge-leave">OD</span>`
+                      : s.status === 'Leave'
+                        ? `<span class="badge badge-leave">Leave</span>`
+                        : `<span class="badge badge-rejected">Absent</span>`;
+                  return `<tr data-search="${s.RegNo} ${s.StudentName} ${s.status}">
+                    <td>${idx + 1}</td>
+                    <td class="fw7 text-pri">${s.RegNo}</td>
+                    <td class="fw6">${s.StudentName}</td>
+                    <td><span class="chip">${s.year}-${s.section}</span></td>
+                    <td>${badge}</td>
+                    <td style="font-size:11px">${s.reason||'—'}</td>
+                  </tr>`;
+                }).join('');
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+  } catch (e) {
+    container.innerHTML = errBlock(e.message);
+  }
+}
+
+/* ══════════════════════════════════════════
+   ATTENDANCE TRENDS PAGE (NEW)
+══════════════════════════════════════════ */
+async function renderAttendanceTrends() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head">
+      <div>
+        <div class="sec-title"><i class="fas fa-chart-line"></i> Attendance Trends & Analytics</div>
+        <div class="sec-sub">Historical attendance patterns and insights</div>
+      </div>
+    </div>
+    <div class="card mb-14">
+      <div class="card-head"><div class="card-title"><i class="fas fa-calendar-alt"></i> Date Range Selection</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:flex-end">
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">From Date</label>
+            <input type="date" class="finp" id="trendFrom" value="${getDateDaysAgo(30)}">
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">To Date</label>
+            <input type="date" class="finp" id="trendTo" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">Year</label>
+            <select class="fsel" id="trendYear">
+              <option value="">All Years</option>
+              <option>I</option><option>II</option><option>III</option><option>IV</option>
+            </select>
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flbl">Section</label>
+            <select class="fsel" id="trendSec">
+              <option value="">All Sections</option>
+              <option>A</option><option>B</option>
+            </select>
+          </div>
+          <button class="btn btn-hod" onclick="loadAttendanceTrends()">
+            <i class="fas fa-chart-line"></i> Generate Trends
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="trendsResult">
+      <div class="empty-state">
+        <i class="fas fa-chart-line"></i>
+        <p>Select date range and click "Generate Trends"</p>
+      </div>
+    </div>`;
+}
+
+function getDateDaysAgo(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+}
+
+async function loadAttendanceTrends() {
+  const fromDate = $('trendFrom').value;
+  const toDate   = $('trendTo').value;
+  const year     = $('trendYear').value;
+  const section  = $('trendSec').value;
+
+  if (!fromDate || !toDate) { toast('Please select both dates','war'); return; }
+
+  const container = $('trendsResult');
+  container.innerHTML = skeleton(4);
+
+  try {
+    // ── FIXED: same student/absent fetch as loadDatewiseAttendance ──
+    const [requestsRes, studentsRes, absentsRes] = await Promise.all([
+      api('hod.getAllRequests', {}),
+      api('hod.getStudentReport', {}),
+      api('chair.getAllAbsents')
+    ]);
+
+    const allReqs     = requestsRes.data || [];
+    const allStudents = studentsRes.data  || [];
+    const allAbsents  = absentsRes.data   || [];
+
+    const dates    = getDatesInRange(fromDate, toDate);
+    const trendData = dates.map(dateStr => {
+      const data = calculateDatewiseAttendance(
+        dateStr, allStudents, allReqs, allAbsents, year, section
+      );
+      const totalStudents = data.reduce((s,i) => s + i.totalStudents, 0);
+      const totalPresent  = data.reduce((s,i) => s + i.presentCount,  0);
+      return {
+        date:        dateStr,
+        displayDate: new Date(dateStr).toLocaleDateString('en-IN',{ day:'2-digit', month:'short' }),
+        percentage:  getAttendancePercentage(totalPresent, totalStudents),
+        present:     totalPresent,
+        total:       totalStudents
+      };
+    });
+
+    const avgAttendance = (trendData.reduce((s,d) => s + parseFloat(d.percentage), 0) / trendData.length).toFixed(2);
+    const maxAttendance = Math.max(...trendData.map(d => parseFloat(d.percentage))).toFixed(2);
+    const minAttendance = Math.min(...trendData.map(d => parseFloat(d.percentage))).toFixed(2);
+
+    container.innerHTML = `
+      <div class="report-grid">
+        <div class="report-card green"><div class="report-label">Average Attendance</div><div class="report-value">${avgAttendance}%</div></div>
+        <div class="report-card green"><div class="report-label">Highest Day</div><div class="report-value">${maxAttendance}%</div></div>
+        <div class="report-card orange"><div class="report-label">Lowest Day</div><div class="report-value">${minAttendance}%</div></div>
+        <div class="report-card"><div class="report-label">Days Analyzed</div><div class="report-value">${trendData.length}</div></div>
+      </div>
+      <div class="card mt-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-chart-line"></i> Attendance Trend Chart</div></div>
+        <div class="card-body"><div class="chart-wrap-tall"><canvas id="trendChart"></canvas></div></div>
+      </div>
+      <div class="card mt-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-table"></i> Daily Breakdown</div></div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl">
+            <thead><tr><th>Date</th><th>Total Students</th><th>Present</th><th>Attendance %</th><th>Status</th></tr></thead>
+            <tbody>
+              ${[...trendData].reverse().map(d => {
+                const pct = parseFloat(d.percentage);
+                const pctClass = getAttendanceClass(pct);
+                return `<tr>
+                  <td class="fw6">${d.displayDate}</td>
+                  <td>${d.total}</td>
+                  <td class="text-suc">${d.present}</td>
+                  <td><div class="attendance-bar">
+                    <div class="attendance-bar-fill ${pctClass}" style="width:${pct}%;font-size:10px">${d.percentage}%</div>
+                  </div></td>
+                  <td><span class="badge ${pct>=90?'badge-approved':pct>=75?'badge-leave':'badge-rejected'}">
+                    ${pct>=90?'Excellent':pct>=75?'Good':'Needs Attention'}
+                  </span></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    charts.trendChart = new Chart($('trendChart'), {
+      type: 'line',
+      data: {
+        labels: trendData.map(d => d.displayDate),
+        datasets: [{
+          label: 'Attendance %',
+          data: trendData.map(d => parseFloat(d.percentage)),
+          borderColor: 'rgba(5,150,105,.8)',
+          backgroundColor: 'rgba(5,150,105,.1)',
+          tension: 0.4, fill: true, pointRadius: 5, borderWidth: 3
+        }]
+      },
+      options: {
+        ...chartDefaultOpts(),
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+      }
+    });
+
+  } catch (e) { container.innerHTML = errBlock(e.message); }
+}
+
+function getDatesInRange(startDate, endDate) {
+  const dates = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    dates.push(new Date(d).toISOString().split('T')[0]);
+  }
+  
+  return dates;
+}
+
+/* ══════════════════════════════════════════
+   CONSOLIDATED REPORT
+══════════════════════════════════════════ */
+async function renderConsolidated() {
+  const pb = $('pageBody');
+  try {
+    const res = await api('hod.getAllRequests', {});
+    const all = res.data || [];
+    allRequestsData = all;
+
+    const approved     = all.filter(r => r.FinalStatus === 'Approved');
+    const rejected     = all.filter(r => r.FinalStatus === 'Rejected');
+    const pending      = all.filter(r => ['Pending','Forwarded','HoD Review'].includes(r.FinalStatus));
+    const leave        = all.filter(r => r.LeaveType === 'Leave');
+    const od           = all.filter(r => r.LeaveType === 'OD');
+    const medical      = all.filter(r => r.LeaveType === 'Medical');
+    const approvalRate = all.length > 0 ? Math.round(approved.length / all.length * 100) : 0;
+    const totalDays    = approved.reduce((s,r) => s + (+r.TotalDays||0), 0);
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div>
+          <div class="sec-title">Consolidated Department Report</div>
+          <div class="sec-sub">Comprehensive summary of all leave & OD requests</div>
+        </div>
+        <button class="btn btn-hod" onclick="openModal('mReport')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+      </div>
+      <div class="report-grid">
+        <div class="report-card"><div class="report-label">Total Requests</div><div class="report-value">${all.length}</div></div>
+        <div class="report-card green"><div class="report-label">Approved</div><div class="report-value">${approved.length}</div><div style="font-size:11px;color:var(--suc);margin-top:4px">${approvalRate}% approval</div></div>
+        <div class="report-card orange"><div class="report-label">Pending</div><div class="report-value">${pending.length}</div></div>
+        <div class="report-card red"><div class="report-label">Rejected</div><div class="report-value">${rejected.length}</div></div>
+        <div class="report-card purple"><div class="report-label">Approved Days</div><div class="report-value">${totalDays}</div></div>
+        <div class="report-card green"><div class="report-label">By Type</div><div class="report-value">${leave.length}</div><div style="font-size:11px;color:var(--txt2);margin-top:4px">L:${leave.length} | OD:${od.length} | M:${medical.length}</div></div>
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Leave Type Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="consBar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Status Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="consPie"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'consTbl')"><option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option></select>
+          <select class="fsel" onchange="filterTbl(this.value,'consTbl')"><option value="">All Status</option><option>Approved</option><option>Rejected</option><option>Pending</option></select>
+          <input type="text" class="finp" placeholder="Search…" oninput="searchTbl(this.value,'consTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl" id="consTbl">
+            <thead><tr><th>ID</th><th>Student</th><th>Reg. No</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Mentor</th><th>Chair</th><th>HoD</th><th>Status</th></tr></thead>
+            <tbody>
+              ${all.length === 0
+                ? `<tr><td colspan="11"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
+                : all.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.LeaveType} ${r.FinalStatus}">
+                    <td class="fw7 text-pri">${r.RequestID}</td>
+                    <td class="fw6">${r.StudentName}</td>
+                    <td>${r.RegNo}</td>
+                    <td>${typeBadge(r.LeaveType)}</td>
+                    <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                    <td><span class="chip">${r.TotalDays}d</span></td>
+                    <td style="font-size:11px">${r.MentorStatus}</td>
+                    <td style="font-size:11px">${r.ChairpersonStatus}</td>
+                    <td style="font-size:11px">${r.HoDStatus||'—'}</td>
+                    <td>${statusBadge(r.FinalStatus)}</td>
+                  </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    charts.consBar = new Chart($('consBar'), {
+      type:'bar',
+      data:{
+        labels:['Leave','OD','Medical','Emergency'],
+        datasets:[{ label:'Count', data:[leave.length, od.length, medical.length, all.filter(r=>r.LeaveType==='Emergency').length], backgroundColor:['rgba(15,39,68,.75)','rgba(224,92,26,.75)','rgba(5,150,105,.75)','rgba(217,119,6,.75)'], borderRadius:6 }]
+      },
+      options: chartDefaultOpts()
+    });
+    charts.consPie = new Chart($('consPie'), {
+      type:'doughnut',
+      data:{
+        labels:['Approved','HoD Review','Pending/Fwd','Rejected'],
+        datasets:[{ data:[approved.length, all.filter(r=>r.FinalStatus==='HoD Review').length, all.filter(r=>['Pending','Forwarded'].includes(r.FinalStatus)).length, rejected.length], backgroundColor:['rgba(5,150,105,.8)','rgba(124,58,237,.8)','rgba(217,119,6,.8)','rgba(220,38,38,.8)'], borderWidth:0, hoverOffset:5 }]
+      },
+      options: doughnutOpts()
+    });
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   YEAR-WISE ANALYSIS
+══════════════════════════════════════════ */
+async function renderYearwise() {
+  const pb = $('pageBody');
+  try {
+    const res  = await api('hod.getYearwise', {});
+    const data = res.data || [];
+
+    pb.innerHTML = `
+      <div class="sec-head"><div class="sec-title">Year-wise Analysis</div></div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Leave Distribution by Year</div></div>
+          <div class="card-body"><div class="chart-wrap-tall"><canvas id="yrBar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-line"></i> Approval Rate by Year</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="yrLine"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><i class="fas fa-table"></i> Year-wise Summary</div></div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl">
+            <thead><tr><th>Year</th><th>Leave</th><th>OD</th><th>Medical</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Approval %</th></tr></thead>
+            <tbody>
+              ${data.map(r => {
+                const total = r.leave + r.od + r.medical;
+                const pct   = total > 0 ? Math.round(r.approved / total * 100) : 0;
+                return `<tr>
+                  <td class="fw7">${r.year} Year</td>
+                  <td>${r.leave}</td><td>${r.od}</td><td>${r.medical}</td>
+                  <td class="text-suc fw6">${r.approved}</td>
+                  <td class="text-dan fw6">${r.rejected}</td>
+                  <td class="text-war fw6">${r.pending}</td>
+                  <td><div style="display:flex;align-items:center;gap:6px">
+                    <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${pct}%;background:var(--suc)"></div></div>
+                    <span style="font-size:11px;font-weight:700">${pct}%</span>
+                  </div></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    const labels = data.map(r => r.year + ' Year');
+    charts.yrBar = new Chart($('yrBar'), {
+      type:'bar',
+      data:{ labels, datasets:[
+        { label:'Leave',   data: data.map(r=>r.leave),   backgroundColor:'rgba(15,39,68,.72)',  borderRadius:5 },
+        { label:'OD',      data: data.map(r=>r.od),      backgroundColor:'rgba(224,92,26,.72)', borderRadius:5 },
+        { label:'Medical', data: data.map(r=>r.medical), backgroundColor:'rgba(5,150,105,.72)', borderRadius:5 }
+      ]},
+      options: chartDefaultOpts()
+    });
+    charts.yrLine = new Chart($('yrLine'), {
+      type:'line',
+      data:{ labels, datasets:[{ label:'Approval %', data: data.map(r => (r.leave+r.od+r.medical) > 0 ? Math.round(r.approved/(r.leave+r.od+r.medical)*100) : 0), borderColor:'rgba(5,150,105,.8)', backgroundColor:'rgba(5,150,105,.1)', tension:.4, fill:true, pointRadius:5, borderWidth:3 }] },
+      options: chartDefaultOpts()
+    });
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   STUDENT-WISE REPORTS
+══════════════════════════════════════════ */
+async function renderStudentwise() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head"><div class="sec-title">Student-wise Reports</div></div>
+    <div class="card mb-14">
+      <div class="card-head"><div class="card-title"><i class="fas fa-filter"></i> Search & Filter</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;align-items:flex-end">
+          <div class="fgrp" style="margin:0"><label class="flbl">Search (Reg. No / Name)</label><input type="text" class="finp" id="swSearch"></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Year</label><select class="fsel" id="swYear"><option value="">All</option><option>I</option><option>II</option><option>III</option><option>IV</option></select></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Section</label><select class="fsel" id="swSec"><option value="">All</option><option>A</option><option>B</option></select></div>
+          <button class="btn btn-hod" onclick="loadStudentwise()"><i class="fas fa-search"></i> Search</button>
+        </div>
+      </div>
+    </div>
+    <div id="swResult"><div class="empty-state"><i class="fas fa-search"></i><p>Apply filters and click Search</p></div></div>`;
+}
+
+async function loadStudentwise() {
+  const payload   = { search: $('swSearch').value.trim(), year: $('swYear').value, section: $('swSec').value };
+  const container = $('swResult');
+  container.innerHTML = skeleton(4);
+  try {
+    const res  = await api('hod.getStudentReport', payload);
+    const data = res.data || [];
+    allStudentsData = data;
+
+    container.innerHTML = `<div class="card">
+      <div class="card-head">
+        <div class="card-title"><i class="fas fa-users"></i> ${data.length} Student(s) Found</div>
+        <button class="btn btn-hod btn-sm" onclick="exportStudentwisePDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl compact-tbl">
+          <thead><tr><th>Reg. No</th><th>Name</th><th>Year/Sec</th><th>Total Req.</th><th>Leave Days</th><th>OD Days</th><th>Approved</th><th>Rejected</th><th>Pending</th></tr></thead>
+          <tbody>
+            ${data.length === 0
+              ? `<tr><td colspan="9"><div class="empty-state"><i class="fas fa-search"></i><p>No students found</p></div></td></tr>`
+              : data.map(s => `<tr>
+                  <td class="fw7 text-pri">${s.RegNo}</td>
+                  <td class="fw6">${s.StudentName}</td>
+                  <td><span class="chip">${s.Year}-${s.Section}</span></td>
+                  <td>${s.totalRequests}</td>
+                  <td>${s.leaveDays}</td><td>${s.odDays}</td>
+                  <td class="text-suc fw6">${s.approved}</td>
+                  <td class="text-dan fw6">${s.rejected}</td>
+                  <td class="text-war fw6">${s.pending}</td>
+                </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  } catch (e) { container.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   ALL REQUESTS
+══════════════════════════════════════════ */
+async function renderAllRequests() {
+  const pb = $('pageBody');
+  try {
+    const res = await api('hod.getAllRequests', {});
+    const all = res.data || [];
+    allRequestsData = all;
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">All Department Requests</div><div class="sec-sub">${all.length} total records</div></div>
+        <button class="btn btn-hod" onclick="openModal('mReport')"><i class="fas fa-file-pdf"></i> Generate Report</button>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'allTbl')"><option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option></select>
+          <select class="fsel" onchange="filterTbl(this.value,'allTbl')"><option value="">All Status</option><option>Approved</option><option>HoD Review</option><option>Pending</option><option>Rejected</option></select>
+          <input type="text" class="finp" placeholder="Search…" oninput="searchTbl(this.value,'allTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl compact-tbl" id="allTbl">
+            <thead><tr><th>ID</th><th>Student</th><th>Reg. No</th><th>Year/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Mentor</th><th>Chair</th><th>HoD</th><th>Status</th></tr></thead>
+            <tbody>
+              ${all.length === 0
+                ? `<tr><td colspan="12"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
+                : all.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.LeaveType} ${r.FinalStatus}">
+                    <td class="fw7 text-pri">${r.RequestID}</td>
+                    <td class="fw6">${r.StudentName}</td>
+                    <td>${r.RegNo}</td>
+                    <td><span class="chip">${r.Year||'?'}-${r.Section||'?'}</span></td>
+                    <td>${typeBadge(r.LeaveType)}</td>
+                    <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                    <td><span class="chip">${r.TotalDays}d</span></td>
+                    <td style="font-size:11px">${r.MentorStatus}</td>
+                    <td style="font-size:11px">${r.ChairpersonStatus}</td>
+                    <td style="font-size:11px">${r.HoDStatus||'—'}</td>
+                    <td>${statusBadge(r.FinalStatus)}</td>
+                  </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   PROFILE
+══════════════════════════════════════════ */
+async function renderProfile() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head"><div class="sec-title">My Profile</div></div>
+    <div style="max-width:600px">
+      <div class="card" style="overflow:hidden">
+        <div style="background:linear-gradient(135deg,#4c1d95,#7c3aed);padding:24px;display:flex;align-items:center;gap:16px;color:#fff">
+          <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;font-family:var(--font-serif)">${getInitials(user.name)}</div>
+          <div>
+            <div style="font-size:18px;font-weight:700">${user.name}</div>
+            <div style="font-size:12px;opacity:.8;margin-top:2px">Head of Department • Information Technology</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item"><label>Login ID</label><p>${user.loginId}</p></div>
+            <div class="info-item"><label>Role</label><p>${user.role}</p></div>
+            <div class="info-item"><label>Department</label><p>Information Technology</p></div>
+          </div>
+          <div class="divider"></div>
+          <div style="margin-bottom:14px">
+            <div class="flbl" style="margin-bottom:10px">Change Password</div>
+            <div class="fcols2">
+              <div class="fgrp"><label class="flbl">Current Password</label><input type="password" class="finp" id="cpOld"></div>
+              <div class="fgrp"><label class="flbl">New Password</label><input type="password" class="finp" id="cpNew"></div>
+            </div>
+          </div>
+          <button class="btn btn-hod" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function changePassword() {
+  const old = $('cpOld').value.trim(), nw = $('cpNew').value.trim();
+  if (!old || !nw) { toast('Fill both fields','war'); return; }
+  if (nw.length < 4) { toast('Min 4 characters','war'); return; }
+  try {
+    showG('Updating…');
+    await api('changePassword', { loginId: user.loginId, oldPassword: old, newPassword: nw });
+    toast('Password updated!','suc'); $('cpOld').value = ''; $('cpNew').value = '';
+  } catch(e) { toast(e.message,'err'); }
+  finally { hideG(); }
+}
+
+/* ══════════════════════════════════════════
+   REPORT MODAL TOGGLE
+══════════════════════════════════════════ */
+function onReportTypeChange() {
+  const t = $('rType').value;
+  $('rRangeField').style.display      = t === 'daterange'   ? 'block' : 'none';
+  $('rStudentField').style.display    = t === 'studentwise' ? 'block' : 'none';
+  $('rYearField').style.display       = ['yearwise','sectionwise'].includes(t) ? 'block' : 'none';
+  $('rMonthField').style.display      = t === 'monthwise'   ? 'block' : 'none';
+  $('rAttendanceField').style.display = t === 'attendance'  ? 'block' : 'none';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PDF INFRASTRUCTURE — BLACK & WHITE ACADEMIC STYLE
+   All colours: pure greyscale only.
+══════════════════════════════════════════════════════════════ */
+
+const BW = {
+  BLACK:  [0,   0,   0  ],
+  DARK:   [30,  30,  30 ],
+  MED:    [80,  80,  80 ],
+  GREY:   [120, 120, 120],
+  LGREY:  [200, 200, 200],
+  XLGREY: [240, 240, 240],
+  WHITE:  [255, 255, 255]
+};
+
+/**
+ * Academic header block.
+ * Returns Y coordinate after the header block.
+ */
+function bwHeader(doc, title, subtitle, meta) {
+  const pw = doc.internal.pageSize.getWidth();
+
+  doc.setDrawColor(...BW.BLACK); doc.setLineWidth(0.8);
+  doc.line(10, 10, pw - 10, 10);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...BW.BLACK);
+  doc.text('VELAMMAL COLLEGE OF ENGINEERING AND TECHNOLOGY', pw/2, 17, { align:'center' });
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...BW.MED);
+  doc.text('(An Autonomous Institution, Affiliated to Anna University, Chennai)', pw/2, 22.5, { align:'center' });
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...BW.BLACK);
+  doc.text('DEPARTMENT OF INFORMATION TECHNOLOGY', pw/2, 28.5, { align:'center' });
+
+  doc.setDrawColor(...BW.BLACK); doc.setLineWidth(0.5);
+  doc.line(10, 31, pw-10, 31);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...BW.BLACK);
+  doc.text(title.toUpperCase(), pw/2, 37.5, { align:'center' });
+
+  let nextY = 41;
+  if (subtitle) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...BW.MED);
+    doc.text(subtitle, pw/2, 43, { align:'center' });
+    nextY = 46;
+  }
+
+  doc.setLineWidth(0.8); doc.setDrawColor(...BW.BLACK);
+  doc.line(10, nextY, pw-10, nextY);
+
+  if (meta) {
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...BW.MED);
+    if (meta.left)  doc.text(meta.left,  14,      nextY + 4);
+    if (meta.right) doc.text(meta.right, pw - 14, nextY + 4, { align:'right' });
+    return nextY + 9;
+  }
+  return nextY + 4;
+}
+
+/** Footer on every page. */
+function bwFooter(doc) {
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const n  = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(...BW.LGREY); doc.setLineWidth(0.3);
+    doc.line(10, ph-9, pw-10, ph-9);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...BW.GREY);
+    doc.text(`Page ${i} of ${n}`,                                              pw/2,    ph-5, { align:'center' });
+    doc.text('VCET-IT Leave Management System — Confidential',                 14,      ph-5);
+    doc.text(`Generated by: ${user.name} (HoD)  |  ${todayIN()}`,             pw - 14, ph-5, { align:'right' });
+  }
+}
+
+/** Standard B&W autoTable preset. */
+function bwTableStyle(headShade = 50) {
+  return {
+    styles: {
+      font: 'helvetica', fontSize: 7.5,
+      cellPadding: { top:2.5, right:3, bottom:2.5, left:3 },
+      textColor: BW.DARK, lineColor: BW.LGREY, lineWidth: 0.2
+    },
+    headStyles: {
+      fillColor: [headShade, headShade, headShade],
+      textColor: BW.WHITE, fontStyle:'bold', fontSize:8, halign:'center'
+    },
+    alternateRowStyles: { fillColor: BW.XLGREY },
+    bodyStyles:   { halign:'center' },
+    tableLineColor: BW.BLACK, tableLineWidth: 0.3
+  };
+}
+
+/** Horizontal KPI summary box. Returns Y after the box. */
+function bwSummaryBox(doc, pairs, startY, label) {
+  const pw    = doc.internal.pageSize.getWidth();
+  if (label) {
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+    doc.text(label, 14, startY);
+    startY += 4;
+  }
+  const boxW  = pw - 28;
+  const cellW = Math.floor(boxW / pairs.length);
+  const boxH  = 14;
+  doc.setDrawColor(...BW.BLACK); doc.setLineWidth(0.3);
+  doc.rect(14, startY, boxW, boxH);
+  pairs.forEach((pair, idx) => {
+    const x  = 14 + idx * cellW;
+    if (idx > 0) { doc.setDrawColor(...BW.LGREY); doc.setLineWidth(0.2); doc.line(x, startY, x, startY+boxH); }
+    const cx = x + cellW / 2;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(...BW.GREY);
+    doc.text(pair[0].toUpperCase(), cx, startY + 4.5, { align:'center' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...BW.BLACK);
+    doc.text(String(pair[1]), cx, startY + 11, { align:'center' });
+  });
+  return startY + boxH + 5;
+}
+
+/* ══════════════════════════════════════════
+   PDF EXPORT - ATTENDANCE REPORT
+══════════════════════════════════════════ */
+function exportAttendancePDF() {
+  const { date: dateStr, year, section, data,
+          totalStudents, totalPresent, totalAbsent, totalOD, totalLeave } = absReportCache;
+
+  if (!dateStr || !data || !data.length) {
+    toast('No report data. Please generate the report first.', 'war');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pw  = doc.internal.pageSize.getWidth();
+
+  const formattedDate = fmtDateHuman(dateStr);
+  const filterNote    = [year ? `Year: ${year}` : '', section ? `Section: ${section}` : '']
+                          .filter(Boolean).join(' | ') || 'All Classes';
+
+  let y = bwHeader(doc,
+    'Date-wise Class Attendance Report',
+    `Date: ${formattedDate}   |   Filter: ${filterNote}`,
+    {
+      left:  `Academic Year: ${new Date().getFullYear()}-${new Date().getFullYear()+1}`,
+      right: `Report Date: ${todayIN()}`
+    }
+  );
+
+  const presentPct = getAttendancePercentage(totalPresent, totalStudents);
+  const absentPct  = getAttendancePercentage(totalAbsent, totalStudents);
+
+  y = bwSummaryBox(doc, [
+    ['Total Students', totalStudents],
+    ['Present',        totalPresent],
+    ['On Duty (OD)',   totalOD],
+    ['On Leave',       totalLeave],
+    ['Absent',         totalAbsent],
+    ['Present %',      `${presentPct}%`],
+    ['Absent %',       `${absentPct}%`]
+  ], y, 'I.  ATTENDANCE SUMMARY');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+  doc.text('II.  CLASS-WISE BREAKDOWN', 14, y); y += 4;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Year','Section','Total','Present','OD','Leave','Absent','Present %','Absent %']],
+    body: data.map(item => {
+      const pPct = getAttendancePercentage(item.presentCount, item.totalStudents);
+      const aPct = getAttendancePercentage(item.absentCount, item.totalStudents);
+      return [
+        `${item.year} Year`, `Sec ${item.section}`,
+        item.totalStudents, item.presentCount, item.odCount||0, item.leaveCount||0,
+        item.absentCount, `${pPct}%`, `${aPct}%`
+      ];
+    }),
+    ...bwTableStyle(40),
+    columnStyles: { 0:{ halign:'left' }, 1:{ halign:'center' } },
+    margin: { left:14, right:14 }
+  });
+
+  y = doc.lastAutoTable.finalY + 7;
+
+  // FIND AND REPLACE this block (starts after "let students = []")
+
+  let students = [];
+  data.forEach(item => { if (item.students) students = students.concat(item.students); });
+
+  // ── UPDATED: Only Absent and Leave students (exclude Present & OD) ──
+  const nonPresentStudents = students.filter(s => s.status === 'Absent' || s.status === 'Leave');
+
+  if (nonPresentStudents.length > 0) {
+    if (y > 230) { doc.addPage(); y = 15; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+    doc.text('III.  ABSENT & LEAVE STUDENTS', 14, y); y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['S.No','Reg. No','Student Name','Year','Section','Status','Reason / Remarks']],
+      body: nonPresentStudents.map((s, idx) => [
+        idx+1, s.RegNo, s.StudentName, s.year, s.section, s.status, s.reason||'—'
+      ]),
+      ...bwTableStyle(40),
+      columnStyles: {
+        0:{ cellWidth:10, halign:'center' },
+        2:{ halign:'left', cellWidth:45 },
+        6:{ halign:'left' }
+      },
+      margin: { left:14, right:14 }
+    });
+    y = doc.lastAutoTable.finalY + 7;
+  }
+
+  const ph   = doc.internal.pageSize.getHeight();
+  const sigY = Math.min(y + 10, ph - 30);
+  doc.setDrawColor(...BW.LGREY); doc.setLineWidth(0.2);
+  doc.line(14,     sigY, 70,      sigY);
+  doc.line(pw-70,  sigY, pw - 14, sigY);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...BW.MED);
+  doc.text('Class In-charge / Mentor',  14,      sigY + 4);
+  doc.text('Head of Department',        pw - 14, sigY + 4, { align:'right' });
+
+  bwFooter(doc);
+  doc.save(`VCET_Attendance_${dateStr}.pdf`);
+  toast('Academic attendance report generated!', 'suc');
+}
+
+/* ══════════════════════════════════════════
+   PDF 2 — COMPREHENSIVE ACADEMIC REPORT
+   consolidated / yearwise / daterange / monthwise / sectionwise
+══════════════════════════════════════════ */
+function generateComprehensiveAcademicPDF(data, reportType, extraMeta) {
+  if (!data || !data.length) { toast('No data to export','war'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const pw  = doc.internal.pageSize.getWidth();
+
+  const labels = {
+    consolidated: 'Consolidated Department Report',
+    yearwise:     'Year-wise Analysis Report',
+    studentwise:  'Student-wise Summary Report',
+    daterange:    'Date Range Analysis Report',
+    monthwise:    'Monthly Analytics Report',
+    sectionwise:  'Section-wise Analysis Report'
+  };
+
+  const parts = [];
+  if (extraMeta && extraMeta.fromDate) parts.push(`From: ${fmtDatePDF(extraMeta.fromDate)}`);
+  if (extraMeta && extraMeta.toDate)   parts.push(`To:   ${fmtDatePDF(extraMeta.toDate)}`);
+  if (extraMeta && extraMeta.year)     parts.push(`Year: ${extraMeta.year}`);
+  if (extraMeta && extraMeta.section)  parts.push(`Section: ${extraMeta.section}`);
+  if (extraMeta && extraMeta.status)   parts.push(`Status: ${extraMeta.status}`);
+  const subtitle = parts.length ? parts.join('   |   ') : null;
+
+  let y = bwHeader(doc,
+    'Leave & OD Sanction — ' + (labels[reportType] || 'Comprehensive Report'),
+    subtitle,
+    {
+      left:  `Academic Year: ${new Date().getFullYear()}-${new Date().getFullYear()+1}`,
+      right: `Generated: ${todayIN()}`
+    }
+  );
+
+  const approved  = data.filter(r => r.FinalStatus === 'Approved');
+  const rejected  = data.filter(r => r.FinalStatus === 'Rejected');
+  const pending   = data.filter(r => ['Pending','Forwarded','HoD Review'].includes(r.FinalStatus));
+  const totalDays = approved.reduce((s,r) => s + (+r.TotalDays||0), 0);
+  const leave     = data.filter(r => r.LeaveType === 'Leave');
+  const od        = data.filter(r => r.LeaveType === 'OD');
+  const medical   = data.filter(r => r.LeaveType === 'Medical');
+  const emergency = data.filter(r => r.LeaveType === 'Emergency');
+  const safeDiv   = (n,d) => d > 0 ? ((n/d)*100).toFixed(1)+'%' : '0.0%';
+  const appPct    = safeDiv(approved.length, data.length);
+
+  y = bwSummaryBox(doc, [
+    ['Total Requests', data.length],
+    ['Approved',       approved.length],
+    ['Rejected',       rejected.length],
+    ['Pending',        pending.length],
+    ['Approval Rate',  appPct],
+    ['Approved Days',  totalDays]
+  ], y, 'I.  SUMMARY STATISTICS');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+  doc.text('II.  LEAVE TYPE BREAKDOWN', 14, y); y += 4;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Leave Type','Total Count','Percentage','Approved','Rejected','Pending']],
+    body: [
+      ['Leave',     leave.length,     safeDiv(leave.length,data.length),     leave.filter(r=>r.FinalStatus==='Approved').length,     leave.filter(r=>r.FinalStatus==='Rejected').length,     leave.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length],
+      ['OD',        od.length,        safeDiv(od.length,data.length),        od.filter(r=>r.FinalStatus==='Approved').length,        od.filter(r=>r.FinalStatus==='Rejected').length,        od.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length],
+      ['Medical',   medical.length,   safeDiv(medical.length,data.length),   medical.filter(r=>r.FinalStatus==='Approved').length,   medical.filter(r=>r.FinalStatus==='Rejected').length,   medical.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length],
+      ['Emergency', emergency.length, safeDiv(emergency.length,data.length), emergency.filter(r=>r.FinalStatus==='Approved').length, emergency.filter(r=>r.FinalStatus==='Rejected').length, emergency.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length]
+    ],
+    ...bwTableStyle(40),
+    columnStyles: { 0:{ halign:'left' } },
+    margin: { left:14, right:14 }
+  });
+
+  y = doc.lastAutoTable.finalY + 7;
+
+  if (y > 155) { doc.addPage(); y = 15; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+  doc.text('III.  YEAR-WISE ANALYSIS', 14, y); y += 4;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Year','Total','Leave','OD','Medical','Emergency','Approved','Rejected','Pending','Approval %']],
+    body: ['I','II','III','IV'].map(yr => {
+      const yd = data.filter(r => r.Year === yr);
+      const a  = yd.filter(r=>r.FinalStatus==='Approved').length;
+      const rj = yd.filter(r=>r.FinalStatus==='Rejected').length;
+      const p  = yd.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length;
+      return [
+        `${yr} Year`, yd.length,
+        yd.filter(r=>r.LeaveType==='Leave').length,
+        yd.filter(r=>r.LeaveType==='OD').length,
+        yd.filter(r=>r.LeaveType==='Medical').length,
+        yd.filter(r=>r.LeaveType==='Emergency').length,
+        a, rj, p, safeDiv(a, yd.length)
+      ];
+    }),
+    ...bwTableStyle(40),
+    columnStyles: { 0:{ halign:'left' } },
+    margin: { left:14, right:14 }
+  });
+
+  y = doc.lastAutoTable.finalY + 7;
+
+  if (y > 150) { doc.addPage(); y = 15; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+  doc.text(`IV.  DETAILED REQUEST REGISTER  (Total: ${data.length} records)`, 14, y); y += 4;
+
+  doc.autoTable({
+    startY: y,
+    head: [['S.No','Req. ID','Reg. No','Student Name','Yr/Sec','Type','Days','From','To','Mentor','Chair','HoD','Status']],
+    body: data.map((r, idx) => [
+      idx+1,
+      r.RequestID,
+      r.RegNo,
+      r.StudentName,
+      `${r.Year||'?'}-${r.Section||'?'}`,
+      r.LeaveType,
+      r.TotalDays,
+      fmtDatePDF(r.FromDate),
+      fmtDatePDF(r.ToDate),
+      r.MentorStatus,
+      r.ChairpersonStatus,
+      r.HoDStatus||'—',
+      r.FinalStatus
+    ]),
+    ...bwTableStyle(30),
+    columnStyles: {
+      0:{ cellWidth:9,  halign:'center' },
+      3:{ cellWidth:35, halign:'left'   },
+      6:{ cellWidth:10 }
+    },
+    margin: { left:14, right:14 }
+  });
+
+  const ph   = doc.internal.pageSize.getHeight();
+  const fy   = doc.lastAutoTable.finalY + 12;
+  const sigY = fy < ph - 30 ? fy : ph - 25;
+  doc.setDrawColor(...BW.LGREY); doc.setLineWidth(0.2);
+  doc.line(14,      sigY, 65,      sigY);
+  doc.line(pw - 65, sigY, pw - 14, sigY);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...BW.MED);
+  doc.text('Prepared by',        14,      sigY + 4);
+  doc.text('Head of Department', pw - 14, sigY + 4, { align:'right' });
+
+  bwFooter(doc);
+  doc.save(`VCET_${reportType}_Report_${dateStr()}.pdf`);
+  toast('Academic report generated!', 'suc');
+
+  function dateStr() { return new Date().toISOString().slice(0,10); }
+}
+
+/* ══════════════════════════════════════════
+   PDF 3 — STUDENT-WISE PDF
+══════════════════════════════════════════ */
+function exportStudentwisePDF() {
+  const data = allStudentsData;
+  if (!data || !data.length) { toast('No data to export','war'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l', 'mm', 'a4');
+  const pw  = doc.internal.pageSize.getWidth();
+
+  let y = bwHeader(doc,
+    'Student-wise Leave & OD Summary Report', null,
+    {
+      left:  `Academic Year: ${new Date().getFullYear()}-${new Date().getFullYear()+1}`,
+      right: `Generated: ${todayIN()}`
+    }
+  );
+
+  y = bwSummaryBox(doc, [
+    ['Students Found',   data.length],
+    ['Total Requests',   data.reduce((s,d)=>s+(d.totalRequests||0),0)],
+    ['Total Approved',   data.reduce((s,d)=>s+(d.approved||0),0)],
+    ['Total Rejected',   data.reduce((s,d)=>s+(d.rejected||0),0)],
+    ['Total Leave Days', data.reduce((s,d)=>s+(d.leaveDays||0),0)],
+    ['Total OD Days',    data.reduce((s,d)=>s+(d.odDays||0),0)]
+  ], y, 'I.  AGGREGATE SUMMARY');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...BW.BLACK);
+  doc.text('II.  STUDENT-WISE DETAILS', 14, y); y += 4;
+
+  doc.autoTable({
+    startY: y,
+    head: [['S.No','Reg. No','Student Name','Year','Section','Total Req.','Leave Days','OD Days','Approved','Rejected','Pending']],
+    body: data.map((s, idx) => [
+      idx+1, s.RegNo, s.StudentName, s.Year, s.Section,
+      s.totalRequests, s.leaveDays, s.odDays, s.approved, s.rejected, s.pending
+    ]),
+    ...bwTableStyle(40),
+    columnStyles: { 0:{ cellWidth:10 }, 2:{ halign:'left', cellWidth:50 } },
+    margin: { left:14, right:14 }
+  });
+
+  bwFooter(doc);
+  doc.save(`VCET_StudentReport_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast('Student-wise PDF generated!', 'suc');
+}
+
+/* ══════════════════════════════════════════
+   PDF 4 — MAIN REPORT GENERATOR (modal trigger)
+══════════════════════════════════════════ */
+async function generateHoDReport() {
+  closeModal('mReport');
+  showG('Generating academic report…');
+  try {
+    const type      = $('rType').value;
+    const statusFil = $('rStatus').value;
+    let payload     = {};
+    let extraMeta   = {};
+
+    if (type === 'attendance') {
+      const dateVal = $('rAttendanceDate').value;
+      if (!dateVal) { toast('Please select a date.','war'); hideG(); return; }
+      absReportCache.date = dateVal;
+      await loadDatewiseAttendance(true);
+      return;
+    }
+
+    if (type === 'daterange') {
+      const fromVal = $('rFrom').value;
+      const toVal   = $('rTo').value;
+      if (!fromVal || !toVal) { toast('Please select both From and To dates.','war'); hideG(); return; }
+      payload.fromDate   = fromVal; payload.toDate     = toVal;
+      extraMeta.fromDate = fromVal; extraMeta.toDate   = toVal;
+
+    } else if (type === 'studentwise') {
+      payload.search = $('rStudent').value;
+
+    } else if (type === 'yearwise' || type === 'sectionwise') {
+      payload.year    = $('rYear').value;
+      payload.section = $('rSection').value;
+      if (payload.year)    extraMeta.year    = payload.year;
+      if (payload.section) extraMeta.section = payload.section;
+
+    } else if (type === 'monthwise') {
+      const m = $('rMonth').value;
+      if (!m) { toast('Please select a month.','war'); hideG(); return; }
+      const [my, mm]   = m.split('-');
+      const lastDay    = new Date(+my, +mm, 0).getDate();
+      payload.fromDate = `${m}-01`;
+      payload.toDate   = `${m}-${String(lastDay).padStart(2,'0')}`;
+      extraMeta.fromDate = payload.fromDate;
+      extraMeta.toDate   = payload.toDate;
+    }
+
+    if (statusFil) extraMeta.status = statusFil;
+
+    const res = await api('hod.getAllRequests', payload);
+    let data  = res.data || [];
+
+    if (payload.fromDate && payload.toDate) {
+      const from = new Date(payload.fromDate + 'T00:00:00');
+      const to   = new Date(payload.toDate   + 'T23:59:59');
+      data = data.filter(r => {
+        const dt = parseLocalDate(r.FromDate);
+        return dt && dt >= from && dt <= to;
+      });
+    }
+
+    if (payload.year)    data = data.filter(r => r.Year    === payload.year);
+    if (payload.section) data = data.filter(r => r.Section === payload.section);
+    if (statusFil) data = data.filter(r => r.FinalStatus === statusFil);
+
+    if (!data.length) { toast('No records match the selected filters.','war'); return; }
+    generateComprehensiveAcademicPDF(data, type, extraMeta);
+
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+  finally { hideG(); }
+}
+
+/* ══ INIT ══ */
+buildSidebar();
+nav('dash');
+</script>
+</body>
+</html>

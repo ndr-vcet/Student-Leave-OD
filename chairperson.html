@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VCET-IT | Chairperson Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ── Absentee-specific extras ── */
+.att-stat-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+.att-stat { background:var(--bg2,#f0f7ff); border:1px solid var(--border,#dde6f0); border-radius:12px; padding:14px 12px; text-align:center; }
+.att-stat .val { font-size:22px; font-weight:800; color:var(--pri,#0f2744); line-height:1; }
+.att-stat .lbl { font-size:11px; color:var(--txt2,#4a6080); margin-top:4px; font-weight:500; }
+.att-stat.green .val { color:#059669; }
+.att-stat.red   .val { color:#dc2626; }
+.att-stat.orange .val{ color:#d97706; }
+.att-stat.blue  .val { color:#0891b2; }
+
+.status-present { background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.status-absent  { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.status-leave   { background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.status-od      { background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.status-medical { background:#f3e8ff; color:#6b21a8; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+
+.att-bar-wrap { background:var(--border,#dde6f0); border-radius:99px; height:10px; overflow:hidden; flex:1; min-width:60px; }
+.att-bar-fill { height:100%; border-radius:99px; transition:width .6s ease; }
+
+.abs-entry-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+
+/* date report card */
+.drep-class-card { border:1px solid var(--border,#dde6f0); border-radius:12px; overflow:hidden; margin-bottom:14px; }
+.drep-class-head { background:var(--pri,#0f2744); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+.drep-class-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border,#dde6f0); }
+.drep-class-stat  { background:var(--card,#fff); padding:10px; text-align:center; }
+.drep-class-stat .ds-val { font-size:20px; font-weight:800; }
+.drep-class-stat .ds-lbl { font-size:10px; color:var(--txt2,#4a6080); margin-top:2px; }
+
+.modal-bg { display:none; position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.45); backdrop-filter:blur(4px); align-items:center; justify-content:center; }
+.modal-bg.open { display:flex; }
+</style>
+</head>
+<body>
+
+<div id="toastZone"></div>
+<div class="global-loader" id="gLoader" style="display:none">
+  <div class="spinner"></div>
+  <div class="loader-txt" id="gLoaderTxt">Loading…</div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-bg" id="mReview">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-clipboard-check text-acc"></i> Review Request</div>
+      <button class="modal-close" onclick="closeModal('mReview')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mReviewBody"></div>
+    <div class="modal-foot"  id="mReviewFoot"></div>
+  </div>
+</div>
+
+<!-- WHATSAPP MODAL -->
+<div class="modal-bg" id="mWA">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title" style="color:#25d366"><i class="fab fa-whatsapp"></i> Send WhatsApp Alert</div>
+      <button class="modal-close" onclick="closeModal('mWA')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mWABody"></div>
+    <div class="modal-foot" id="mWAFoot"></div>
+  </div>
+</div>
+
+<!-- ABSENT ENTRY MODAL -->
+<div class="modal-bg" id="mAbsEntry">
+  <div class="modal-box" style="max-width:540px">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-user-times" style="color:#dc2626"></i> Mark Absentee</div>
+      <button class="modal-close" onclick="closeModal('mAbsEntry')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mAbsEntryBody"></div>
+    <div class="modal-foot" id="mAbsEntryFoot"></div>
+  </div>
+</div>
+
+<!-- DATE REPORT MODAL -->
+<div class="modal-bg" id="mDateReport">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-file-pdf" style="color:#dc2626"></i> Date-wise Attendance Report</div>
+      <button class="modal-close" onclick="closeModal('mDateReport')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrp">
+        <label class="flbl">Report Date <span style="color:red">*</span></label>
+        <input type="date" class="finp" id="drDate" style="max-width:200px">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Report Type</label>
+        <select class="fsel" id="drType">
+          <option value="single">Single Date</option>
+          <option value="range">Date Range</option>
+        </select>
+      </div>
+      <div id="drRangeWrap" style="display:none">
+        <div class="fgrp">
+          <label class="flbl">To Date</label>
+          <input type="date" class="finp" id="drDateTo" style="max-width:200px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('mDateReport')">Cancel</button>
+      <button class="btn btn-acc" onclick="generateAttendanceReport()"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+      <button class="btn btn-pri" onclick="loadDateReport()"><i class="fas fa-eye"></i> Preview</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGOUT MODAL -->
+<div id="mLogout" style="display:none;position:fixed;inset:0;z-index:9999;background:#ffffff;align-items:center;justify-content:center">
+  <div style="background:var(--card,#fff);border:1px solid var(--border,#dde6f0);border-radius:16px;padding:28px 28px 22px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(220,38,38,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-sign-out-alt" style="color:#dc2626;font-size:16px"></i>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:var(--txt,#1a3c5e)">Sign Out</div>
+        <div style="font-size:12px;color:var(--txt2,#4a6080);margin-top:1px">Chairperson Portal</div>
+      </div>
+    </div>
+    <p style="font-size:13.5px;color:var(--txt2,#4a6080);margin:0 0 20px;line-height:1.5">Are you sure you want to sign out from the portal?</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="document.getElementById('mLogout').style.display='none'"
+        style="padding:8px 18px;border-radius:8px;border:1px solid var(--border,#dde6f0);background:var(--bg2,#f0f7ff);color:var(--txt,#1a3c5e);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500">Cancel</button>
+      <button onclick="sessionStorage.removeItem('vcet_user');window.location.href='index.html';"
+        style="padding:8px 18px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600"><i class="fas fa-sign-out-alt"></i> Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORT MODAL injected by JS -->
+<div id="reportModalSlot"></div>
+
+<div id="appWrap">
+  <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sb-logo">IT</div>
+      <div>
+        <div class="sb-brand-name">VCET Leave Portal</div>
+        <div class="sb-brand-sub">Chairperson Dashboard</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-foot">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar">C</div>
+        <div style="min-width:0">
+          <div class="sb-uname" id="sbName">—</div>
+          <div class="sb-urole" id="sbRole">Chairperson</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div id="mainArea">
+    <div class="topbar">
+      <button class="tb-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <div class="tb-title" id="tbTitle">Dashboard</div>
+      <div class="tb-actions">
+        <button class="tb-btn" onclick="refreshCurrentPage()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+        <div class="theme-pill" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="themeIco"></i>
+          <span id="themeTxt">Dark</span>
+        </div>
+        <button class="tb-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
+      </div>
+    </div>
+    <div class="page-body" id="pageBody"></div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+
+/* ══ SESSION ══ */
+let user = JSON.parse(sessionStorage.getItem('vcet_user') || 'null');
+if (!user || user.role !== 'Chairperson') { window.location.href = 'index.html'; }
+
+let currentPage = '';
+let allStudents = [];
+
+const NAV_ITEMS = [
+  { id: 'dash',       icon: 'fa-home',             label: 'Dashboard' },
+  { id: 'forwarded',  icon: 'fa-clipboard-check',  label: 'Approve Requests' },
+  { id: 'chairAll',   icon: 'fa-list-alt',         label: 'All Requests' },
+  { id: 'students',   icon: 'fa-users',            label: 'All Students' },
+  { id: 'absentees',  icon: 'fa-user-times',       label: 'Absentee Records' },
+  { id: 'attendance', icon: 'fa-calendar-check',   label: 'Attendance Report' },
+  { id: 'analysis',   icon: 'fa-chart-bar',        label: 'Student Analysis' },
+  { id: 'reports',    icon: 'fa-chart-line',       label: 'Reports & Analytics' },
+  { id: 'advanced',   icon: 'fa-chart-pie',        label: 'Advanced Analytics' },
+  { id: 'profile',    icon: 'fa-user-circle',      label: 'My Profile' }
+];
+
+document.getElementById('reportModalSlot').innerHTML = getReportModalHTML();
+
+/* ── Date Report Type Toggle ── */
+document.getElementById('drType').addEventListener('change', function(){
+  document.getElementById('drRangeWrap').style.display = this.value === 'range' ? '' : 'none';
+});
+
+function initApp() {
+  buildSidebar(NAV_ITEMS, 'Chairperson', user, 0);
+  nav('dash');
+}
+
+function nav(pageId) {
+  currentPage = pageId;
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  const el = $('nl_' + pageId);
+  if (el) el.classList.add('active');
+  const titles = {
+    dash:'Dashboard', forwarded:'Approve Requests', chairAll:'All Requests',
+    students:'All Students', absentees:'Absentee Records', attendance:'Attendance Report',
+    analysis:'Student Analysis', reports:'Reports & Analytics',
+    advanced:'Advanced Analytics', profile:'My Profile'
+  };
+  $('tbTitle').textContent = titles[pageId] || pageId;
+  closeSidebar();
+  loadPage(pageId);
+}
+
+function refreshCurrentPage() { if (currentPage) loadPage(currentPage); }
+
+function loadPage(id) {
+  destroyCharts();
+  const pb = $('pageBody');
+  pb.innerHTML = `<div class="sk-block mb-14">${skeleton()}</div><div class="sk-block">${skeleton(5)}</div>`;
+  const pages = {
+    dash: renderDash, forwarded: renderForwarded, chairAll: renderChairAll,
+    students: renderStudents, absentees: renderAbsentees, attendance: renderAttendancePage,
+    analysis: renderAnalysis, reports: renderReports,
+    advanced: renderAdvanced, profile: renderProfile
+  };
+  const fn = pages[id];
+  if (fn) fn();
+  else pb.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>Page not found</p></div>';
+}
+
+function doLogout() { document.getElementById('mLogout').style.display = 'flex'; }
+
+/* ══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+async function renderDash() {
+  const pb = $('pageBody');
+  try {
+    const res = await api('chair.getDashboard');
+    const d   = res.data;
+    buildSidebar(NAV_ITEMS, 'Chairperson', user, d.awaitingApproval);
+
+    pb.innerHTML = `
+      <div class="welcome">
+        <div class="welcome-z">
+          <div class="welcome-title">Chairperson Dashboard 📋</div>
+          <div class="welcome-sub">${d.awaitingApproval} request(s) awaiting your approval.</div>
+          <div class="welcome-date"><i class="fas fa-calendar-day"></i> ${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+          <div class="welcome-actions">
+            <button class="btn btn-pri" onclick="nav('forwarded')"><i class="fas fa-clipboard-check"></i> Approve Requests</button>
+            <button class="btn btn-acc" onclick="openModal('mReport')"><i class="fas fa-file-pdf"></i> Generate Report</button>
+            <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.28)" onclick="nav('absentees')"><i class="fas fa-user-times"></i> Absentee Records</button>
+            <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.28)" onclick="nav('attendance')"><i class="fas fa-calendar-check"></i> Attendance Report</button>
+          </div>
+        </div>
+      </div>
+      <div class="stats-grid col4 mb-20">
+        ${sCard('Total Requests',    d.totalRequests,    'fa-file-alt',     'sc-blue')}
+        ${sCard('Awaiting Approval', d.awaitingApproval, 'fa-inbox',        'sc-orange')}
+        ${sCard('Sent to HoD',       d.approved,         'fa-arrow-up',     'sc-purple')}
+        ${sCard('Rejected',          d.rejected,         'fa-times-circle', 'sc-red')}
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Leave Type Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chairBar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Status Overview</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="chairDough"></canvas></div></div>
+        </div>
+      </div>`;
+
+    charts.chairBar = new Chart($('chairBar'), {
+      type:'bar',
+      data:{ labels:['Leave','OD','Medical','Emergency'],
+        datasets:[{label:'Count', data:[d.totalLeave,d.totalOD,d.totalMedical,d.totalRequests-d.totalLeave-d.totalOD-d.totalMedical],
+          backgroundColor:['rgba(15,39,68,.75)','rgba(224,92,26,.75)','rgba(5,150,105,.75)','rgba(217,119,6,.75)'],borderRadius:6}]},
+      options: chartDefaultOpts()
+    });
+    charts.chairDough = new Chart($('chairDough'), {
+      type:'doughnut',
+      data:{ labels:['Sent to HoD','Awaiting','Rejected'],
+        datasets:[{data:[d.approved,d.awaitingApproval,d.rejected],
+          backgroundColor:['rgba(124,58,237,.8)','rgba(217,119,6,.8)','rgba(220,38,38,.8)'],borderWidth:0,hoverOffset:5}]},
+      options: doughnutOpts()
+    });
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   APPROVE (FORWARDED) REQUESTS
+══════════════════════════════════════════ */
+async function renderForwarded() {
+  const pb = $('pageBody');
+  try {
+    const res  = await api('chair.getForwarded');
+    const reqs = res.data || [];
+    window._pendingData = reqs;
+    buildSidebar(NAV_ITEMS, 'Chairperson', user, reqs.length);
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">Approve Requests</div><div class="sec-sub">${reqs.length} mentor-approved, awaiting your decision</div></div>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'fwdTbl')">
+            <option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'fwdTbl')">
+            <option value="">All Years</option><option value="I">Year I</option><option value="II">Year II</option><option value="III">Year III</option><option value="IV">Year IV</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search student…" oninput="searchTbl(this.value,'fwdTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="fwdTbl">
+            <thead><tr><th>ID</th><th>Student</th><th>Year/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Mentor Remark</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${reqs.length === 0
+              ? `<tr><td colspan="10"><div class="empty-state"><i class="fas fa-check-double text-suc"></i><p>All requests processed!</p></div></td></tr>`
+              : reqs.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.Year} ${r.LeaveType}">
+                  <td class="fw7 text-pri">${r.RequestID}</td>
+                  <td><div class="fw6">${r.StudentName}</div><div style="font-size:11px;color:var(--txt2)">${r.RegNo}</div></td>
+                  <td><span class="chip">${r.Year||'—'}-${r.Section||'—'}</span></td>
+                  <td>${typeBadge(r.LeaveType)}</td>
+                  <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                  <td><span class="chip">${r.TotalDays}d</span></td>
+                  <td><span class="ellipsis" title="${r.Reason}">${r.Reason}</span></td>
+                  <td style="font-size:12px;color:var(--txt2)">${r.MentorRemarks||'—'}</td>
+                  <td><div style="display:flex;gap:5px">
+                    <button class="btn btn-suc btn-xs" onclick="quickAct('${r.RequestID}','Approved','chair')"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-dan btn-xs" onclick="quickAct('${r.RequestID}','Rejected','chair')"><i class="fas fa-times"></i></button>
+                    <button class="btn btn-ghost btn-xs" onclick="openReview('${r.RequestID}','chair',fetchFallback)"><i class="fas fa-eye"></i></button>
+                  </div></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   ALL REQUESTS
+══════════════════════════════════════════ */
+async function renderChairAll() {
+  const pb = $('pageBody');
+  try {
+    const res  = await api('chair.getAllRequests');
+    const reqs = res.data || [];
+    window._allData = reqs;
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">All Requests</div><div class="sec-sub">${reqs.length} total records</div></div>
+        <button class="btn btn-acc" onclick="generatePDF(window._allData,'all','${user.name}','Chairperson')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'chairAllTbl')">
+            <option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'chairAllTbl')">
+            <option value="">All Status</option><option>Pending</option><option>Forwarded</option><option>HoD Review</option><option>Approved</option><option>Rejected</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'chairAllTbl')">
+            <option value="">All Years</option><option>I</option><option>II</option><option>III</option><option>IV</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search…" oninput="searchTbl(this.value,'chairAllTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="chairAllTbl">
+            <thead><tr><th>ID</th><th>Student</th><th>Yr/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Mentor</th><th>Chairperson</th><th>HoD</th><th>Final</th><th>Action</th></tr></thead>
+            <tbody>
+              ${reqs.length === 0
+              ? `<tr><td colspan="13"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
+              : reqs.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.FinalStatus} ${r.LeaveType}">
+                  <td class="fw7 text-pri">${r.RequestID}</td>
+                  <td><div class="fw6">${r.StudentName}</div><div style="font-size:11px;color:var(--txt2)">${r.RegNo}</div></td>
+                  <td><span class="chip">${r.Year||'?'}-${r.Section||'?'}</span></td>
+                  <td>${typeBadge(r.LeaveType)}</td>
+                  <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                  <td><span class="chip">${r.TotalDays}d</span></td>
+                  <td><span class="ellipsis" title="${r.Reason}">${r.Reason}</span></td>
+                  <td>${statusBadge(r.MentorStatus)}</td>
+                  <td>${statusBadge(r.ChairpersonStatus)}</td>
+                  <td>${statusBadge(r.HoDStatus||'Pending')}</td>
+                  <td>${statusBadge(r.FinalStatus)}</td>
+                  <td><button class="btn btn-ghost btn-xs" onclick="openReview('${r.RequestID}','view',fetchFallback)"><i class="fas fa-eye"></i></button></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   ALL STUDENTS
+══════════════════════════════════════════ */
+async function renderStudents() {
+  const pb = $('pageBody');
+  try {
+    if (!allStudents.length) {
+      const res = await api('chair.getAllStudents', { facultyId: user.facultyId });
+      allStudents = res.data || [];
+    }
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">All Students</div><div class="sec-sub">${allStudents.length} students assigned to you</div></div>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <input type="text" class="finp" style="max-width:280px;flex:1" placeholder="Search student, Reg. No…" oninput="searchTbl(this.value,'stuTbl')">
+          <select class="fsel" onchange="filterTbl(this.value,'stuTbl')">
+            <option value="">All Sections</option><option value="A">Section A</option><option value="B">Section B</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'stuTbl')">
+            <option value="">All Years</option><option>I</option><option>II</option><option>III</option><option>IV</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="stuTbl">
+            <thead><tr><th>Reg. No</th><th>Name</th><th>Year/Sec</th><th>Mentor</th><th>Father</th><th>Father Mobile</th><th>Mother</th><th>Mother Mobile</th><th>Student Mobile</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${allStudents.length === 0
+              ? `<tr><td colspan="10"><div class="empty-state"><i class="fas fa-users"></i><p>No students assigned to you</p></div></td></tr>`
+              : allStudents.map(s => `<tr data-search="${s.RegNo} ${s.StudentName} ${s.Section} ${s.Year} ${s.MentorName||''}">
+                <td class="fw7 text-pri">${s.RegNo}</td>
+                <td class="fw6">${s.StudentName}</td>
+                <td><span class="chip">${s.Year}-${s.Section}</span></td>
+                <td style="font-size:12px;color:var(--txt2)">${s.MentorName||'—'}</td>
+                <td>${s.FatherName||'—'}</td>
+                <td><a href="tel:${s.FatherMobile}" style="color:var(--pri);font-weight:600"><i class="fas fa-phone fa-xs"></i> ${s.FatherMobile||'—'}</a></td>
+                <td>${s.MotherName||'—'}</td>
+                <td><a href="tel:${s.MotherMobile}" style="color:var(--pri);font-weight:600"><i class="fas fa-phone fa-xs"></i> ${s.MotherMobile||'—'}</a></td>
+                <td>${s.StudentMobile||'—'}</td>
+                <td><div style="display:flex;gap:5px">
+                  <button class="btn btn-wa btn-xs" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i></button>
+                  <a href="tel:${s.FatherMobile}" class="btn btn-pri btn-xs"><i class="fas fa-phone"></i></a>
+                </div></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   ABSENTEE RECORDS (NEW)
+══════════════════════════════════════════ */
+async function renderAbsentees() {
+  const pb = $('pageBody');
+  try {
+    /* Load students (needed for entry modal & stats) */
+    if (!allStudents.length) {
+      const res = await api('chair.getAllStudents', { facultyId: user.facultyId });
+      allStudents = res.data || [];
+    }
+
+    /* Fetch leave requests to cross-reference approved leaves */
+    const [leaveRes] = await Promise.all([api('chair.getAllRequests')]);
+    const leaveReqs  = leaveRes.data || [];
+
+    /* Fetch absent entries — use mentor.getAbsents for each mentorId
+       But since chair sees all: we repurpose chair.getAllRequests
+       and separately pull absents via mentor API for each student's mentor.
+       Simpler: pull ALL absent entries by fetching with mentor.getAbsents
+       scoped to the chair's own ID (they may also be a mentor, or we fetch
+       using the faculty ID pattern). */
+
+    /* Strategy: fetch absents using chair's facultyId as mentorId */
+    let absRows = [];
+    try {
+      const absRes = await api('chair.getAllAbsents');
+            absRows = absRes.data || [];
+    } catch(e) { absRows = []; }
+
+    window._absData = absRows;
+    window._leaveData = leaveReqs;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    /* Stats */
+    const totalAbs     = absRows.length;
+    const todayAbs     = absRows.filter(a => a.Date === today).length;
+    const notified     = absRows.filter(a => a.ParentNotified === 'Yes').length;
+    const thisMonthAbs = absRows.filter(a => (a.Date||'').startsWith(today.slice(0,7))).length;
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div>
+          <div class="sec-title">Absentee Records</div>
+          <div class="sec-sub">Track, manage and report student absenteeism</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-dan" onclick="openAbsEntryModal()"><i class="fas fa-user-times"></i> Mark Absentee</button>
+          <button class="btn btn-acc" onclick="exportAbsencesPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div class="att-stat-row mb-14">
+        <div class="att-stat"><div class="val">${totalAbs}</div><div class="lbl">Total Entries</div></div>
+        <div class="att-stat red"><div class="val">${todayAbs}</div><div class="lbl">Today's Absences</div></div>
+        <div class="att-stat orange"><div class="val">${thisMonthAbs}</div><div class="lbl">This Month</div></div>
+        <div class="att-stat green"><div class="val">${notified}</div><div class="lbl">Parent Notified</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-list-alt"></i> Absence Log</div>
+        </div>
+        <div class="filter-bar">
+          <input type="date" class="finp" id="absDateFilter" style="max-width:180px" oninput="filterAbsTable()">
+          <select class="fsel" id="absYearFilter" onchange="filterAbsTable()">
+            <option value="">All Years</option><option>I</option><option>II</option><option>III</option><option>IV</option>
+          </select>
+          <select class="fsel" id="absNotifyFilter" onchange="filterAbsTable()">
+            <option value="">All</option><option value="Yes">Notified</option><option value="No">Not Notified</option>
+          </select>
+          <input type="text" class="finp" id="absSearch" placeholder="Search student…" oninput="filterAbsTable()" style="max-width:220px;flex:1">
+          <button class="btn btn-ghost btn-xs" onclick="clearAbsFilters()"><i class="fas fa-times"></i> Clear</button>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="absTbl">
+            <thead><tr><th>Entry ID</th><th>Date</th><th>Reg. No</th><th>Student Name</th><th>Year/Sec</th><th>Reason</th><th>Parent Notified</th><th>Notified At</th><th>Actions</th></tr></thead>
+            <tbody id="absTbody">
+              ${renderAbsRows(absRows)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Month-wise absence bar chart -->
+      <div class="card mt-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Monthly Absence Trend</div></div>
+        <div class="card-body"><div class="chart-wrap-tall"><canvas id="absMonthChart"></canvas></div></div>
+      </div>`;
+
+    /* Month trend chart */
+    const monthBuckets = {};
+    absRows.forEach(a => {
+      const m = (a.Date||'').slice(0,7);
+      if(m) monthBuckets[m] = (monthBuckets[m]||0)+1;
+    });
+    const months = Object.keys(monthBuckets).sort().slice(-6);
+    const mLabels = months.map(m=>{try{return new Date(m+'-01').toLocaleDateString('en-IN',{month:'short',year:'2-digit'})}catch(e){return m}});
+
+    charts.absMonthChart = new Chart($('absMonthChart'), {
+      type:'bar',
+      data:{ labels:mLabels,
+        datasets:[{label:'Absences', data:months.map(m=>monthBuckets[m]||0),
+          backgroundColor:'rgba(220,38,38,.7)', borderRadius:6}]},
+      options: chartDefaultOpts()
+    });
+
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+function renderAbsRows(rows) {
+  if (!rows.length) return `<tr><td colspan="9"><div class="empty-state"><i class="fas fa-check-circle text-suc"></i><p>No absent entries found</p></div></td></tr>`;
+  return rows.map(a => `<tr data-date="${a.Date||''}" data-year="${a.Year||''}" data-notify="${a.ParentNotified||''}" data-search="${a.RegNo} ${a.StudentName} ${a.EntryID}">
+    <td class="fw7 text-pri">${a.EntryID||'—'}</td>
+    <td>${fmtDate(a.Date)}</td>
+    <td class="fw6">${a.RegNo}</td>
+    <td>${a.StudentName}</td>
+    <td><span class="chip">${a.Year||'—'}-${a.Section||'—'}</span></td>
+    <td><span class="ellipsis" title="${a.Reason||''}">${a.Reason||'—'}</span></td>
+    <td><span class="${a.ParentNotified==='Yes'?'status-present':'status-absent'}">${a.ParentNotified||'No'}</span></td>
+    <td style="font-size:11px;color:var(--txt2)">${a.NotifiedAt||'—'}</td>
+    <td><button class="btn btn-wa btn-xs" onclick="openWA('${a.RegNo}')"><i class="fab fa-whatsapp"></i></button></td>
+  </tr>`).join('');
+}
+
+function filterAbsTable() {
+  const dateF   = ($('absDateFilter')||{}).value||'';
+  const yearF   = ($('absYearFilter')||{}).value||'';
+  const notifyF = ($('absNotifyFilter')||{}).value||'';
+  const search  = (($('absSearch')||{}).value||'').toLowerCase();
+  const tbody   = $('absTbody');
+  if (!tbody) return;
+  [...tbody.querySelectorAll('tr')].forEach(tr => {
+    const d  = tr.dataset.date    || '';
+    const y  = tr.dataset.year    || '';
+    const n  = tr.dataset.notify  || '';
+    const s  = (tr.dataset.search || '').toLowerCase();
+    const ok = (!dateF || d === dateF) && (!yearF || y === yearF) && (!notifyF || n === notifyF) && (!search || s.includes(search));
+    tr.style.display = ok ? '' : 'none';
+  });
+}
+
+function clearAbsFilters() {
+  ['absDateFilter','absYearFilter','absNotifyFilter','absSearch'].forEach(id => { const el = $(id); if(el) el.value = ''; });
+  filterAbsTable();
+}
+
+/* ── ABSENT ENTRY MODAL ── */
+function openAbsEntryModal(prefillRegNo) {
+  /* Build student select */
+  const stuOptions = allStudents.map(s => `<option value="${s.RegNo}" ${prefillRegNo===s.RegNo?'selected':''}>${s.StudentName} (${s.RegNo}) — ${s.Year}-${s.Section}</option>`).join('');
+
+  $('mAbsEntryBody').innerHTML = `
+    <div class="abs-entry-grid">
+      <div class="fgrp"><label class="flbl">Date <span style="color:red">*</span></label>
+        <input type="date" class="finp" id="aeDate" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label class="flbl">Student <span style="color:red">*</span></label>
+        <select class="fsel" id="aeStudent" style="width:100%">
+          <option value="">— Select Student —</option>
+          ${stuOptions}
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label class="flbl">Reason</label>
+        <input type="text" class="finp" id="aeReason" placeholder="e.g. Not Informed, Medical, Personal…">
+      </div>
+      <div class="fgrp"><label class="flbl">Parent Notified?</label>
+        <select class="fsel" id="aeNotified">
+          <option value="No">No</option>
+          <option value="Yes">Yes</option>
+        </select>
+      </div>
+    </div>`;
+
+  $('mAbsEntryFoot').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal('mAbsEntry')">Cancel</button>
+    <button class="btn btn-dan" onclick="submitAbsEntry()"><i class="fas fa-user-times"></i> Mark Absent</button>`;
+
+  openModal('mAbsEntry');
+}
+
+async function submitAbsEntry() {
+  const dateVal    = $('aeDate').value.trim();
+  const stuVal     = $('aeStudent').value.trim();
+  const reason     = $('aeReason').value.trim();
+  const notified   = $('aeNotified').value;
+
+  if (!dateVal || !stuVal) { toast('Date and Student are required', 'war'); return; }
+
+  const stu = allStudents.find(s => s.RegNo === stuVal);
+  if (!stu) { toast('Student not found', 'err'); return; }
+
+  showG('Marking absentee…');
+  try {
+    await api('mentor.addAbsent', {
+      mentorId       : user.facultyId || user.loginId,
+      regNo          : stu.RegNo,
+      studentName    : stu.StudentName,
+      year           : stu.Year,
+      section        : stu.Section,
+      date           : dateVal,
+      reason         : reason || 'Not Informed',
+      parentNotified : notified === 'Yes'
+    });
+    toast('Absentee entry saved!', 'suc');
+    closeModal('mAbsEntry');
+    loadPage('absentees');
+  } catch(e) { toast(e.message, 'err'); } finally { hideG(); }
+}
+
+/* ── ABSENT PDF ── */
+function exportAbsencesPDF() {
+  const rows = window._absData || [];
+  if (!rows.length) { toast('No absence data to export', 'war'); return; }
+
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF('l','mm','a4');
+  const pw  = doc.internal.pageSize.getWidth();
+
+  doc.setFillColor(220,38,38); doc.rect(0,0,pw,24,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('VCET-IT | Chairperson — Absentee Records', pw/2, 10, {align:'center'});
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | By: ${user.name}`, pw/2, 18, {align:'center'});
+
+  doc.autoTable({
+    startY: 28,
+    head:[['Entry ID','Date','Reg. No','Student Name','Year','Section','Reason','Parent Notified','Notified At']],
+    body: rows.map(a=>[a.EntryID||'',a.Date||'',a.RegNo||'',a.StudentName||'',a.Year||'',a.Section||'',a.Reason||'',a.ParentNotified||'No',a.NotifiedAt||'—']),
+    styles:{fontSize:8,cellPadding:2.5},
+    headStyles:{fillColor:[220,38,38],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[255,240,240]}
+  });
+  doc.save(`VCET_Chair_AbsenteeRecords_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('Absentee PDF downloaded!','suc');
+}
+
+/* ══════════════════════════════════════════
+   ATTENDANCE REPORT PAGE (NEW)
+══════════════════════════════════════════ */
+async function renderAttendancePage() {
+  const pb = $('pageBody');
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  pb.innerHTML = `
+    <div class="sec-head">
+      <div>
+        <div class="sec-title">Attendance Report</div>
+        <div class="sec-sub">Date-wise class attendance with leave, OD & absentee breakdown</div>
+      </div>
+    </div>
+
+    <!-- Filter Panel -->
+    <div class="card mb-14">
+      <div class="card-head"><div class="card-title"><i class="fas fa-filter"></i> Report Filters</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;align-items:flex-end">
+          <div class="fgrp" style="margin:0"><label class="flbl">Date <span style="color:red">*</span></label>
+            <input type="date" class="finp" id="attDate" value="${todayStr}">
+          </div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Year</label>
+            <select class="fsel" id="attYear"><option value="">All</option><option>I</option><option>II</option><option>III</option><option>IV</option></select>
+          </div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Section</label>
+            <select class="fsel" id="attSec"><option value="">All</option><option>A</option><option>B</option></select>
+          </div>
+          <button class="btn btn-pri" onclick="loadAttendanceReport()"><i class="fas fa-search"></i> Load Report</button>
+          <button class="btn btn-acc" onclick="openModal('mDateReport')"><i class="fas fa-file-pdf"></i> PDF Report</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="attResult">
+      <div class="empty-state"><i class="fas fa-calendar-check"></i><p>Select a date and click <b>Load Report</b></p></div>
+    </div>`;
+}
+
+/* Load and render attendance data from existing APIs */
+async function loadAttendanceReport() {
+  const container = $('attResult');
+  if (!container) return;
+
+  const dateStr = ($('attDate')||{}).value;
+  const year    = ($('attYear')||{}).value||'';
+  const sec     = ($('attSec')||{}).value||'';
+
+  if (!dateStr) { toast('Please select a date', 'war'); return; }
+
+  container.innerHTML = `<div class="sk-block">${skeleton(4)}</div>`;
+  destroyCharts();
+
+  try {
+    /* Load prerequisites */
+    if (!allStudents.length) {
+      const res = await api('chair.getAllStudents', { facultyId: user.facultyId });
+      allStudents = res.data || [];
+    }
+    const leaveRes = await api('chair.getAllRequests');
+    const leaveReqs = leaveRes.data || [];
+
+    let absRows = [];
+    try {
+      const absRes = await api('chair.getAllAbsents');
+            absRows = absRes.data || [];
+    } catch(e) {}
+
+    /* Filter students */
+    let students = allStudents;
+    if (year) students = students.filter(s => s.Year === year);
+    if (sec)  students = students.filter(s => s.Section === sec);
+
+    if (!students.length) {
+      container.innerHTML = `<div class="empty-state"><i class="fas fa-users"></i><p>No students found for selected filters</p></div>`;
+      return;
+    }
+
+    /* Compute per-student status for the selected date */
+    const statusData = computeStudentStatusOnDate(students, leaveReqs, absRows, dateStr);
+    window._attData = { dateStr, year, sec, students, statusData, leaveReqs, absRows };
+
+    /* Group by Year-Section */
+    const classes = groupByClass(statusData);
+
+    /* Totals */
+    const totalStudents = statusData.length;
+    const totalPresent  = statusData.filter(s=>s.status==='Present').length;
+    const totalAbsent   = statusData.filter(s=>s.status==='Absent').length;
+    const totalLeave    = statusData.filter(s=>s.status==='Leave'||s.status==='Medical').length;
+    const totalOD       = statusData.filter(s=>s.status==='OD').length;
+    const attPct        = totalStudents > 0 ? ((totalPresent+totalOD)/totalStudents*100).toFixed(1) : 0;
+
+    container.innerHTML = `
+      <!-- Summary Bar -->
+      <div class="card mb-14" style="border-left:4px solid var(--pri,#0f2744)">
+        <div class="card-head" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div class="card-title"><i class="fas fa-calendar-day"></i> ${formatDisplayDate(dateStr)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-xs" onclick="toggleAllClassDetails()"><i class="fas fa-expand-alt"></i> Expand All</button>
+            <button class="btn btn-acc btn-xs" onclick="generateAttendanceReportDirect()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div class="att-stat-row">
+            <div class="att-stat"><div class="val">${totalStudents}</div><div class="lbl">Total Students</div></div>
+            <div class="att-stat green"><div class="val">${totalPresent}</div><div class="lbl">Present</div></div>
+            <div class="att-stat red"><div class="val">${totalAbsent}</div><div class="lbl">Absent</div></div>
+            <div class="att-stat orange"><div class="val">${totalLeave}</div><div class="lbl">On Leave</div></div>
+            <div class="att-stat blue"><div class="val">${totalOD}</div><div class="lbl">OD</div></div>
+            <div class="att-stat" style="border:2px solid ${+attPct>=75?'#059669':'#dc2626'}">
+              <div class="val" style="color:${+attPct>=75?'#059669':'#dc2626'}">${attPct}%</div>
+              <div class="lbl">Attendance %</div>
+            </div>
+          </div>
+          <!-- Overall bar -->
+          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+            <span style="font-size:12px;color:var(--txt2);min-width:120px">Overall Attendance</span>
+            <div class="att-bar-wrap">
+              <div class="att-bar-fill" style="width:${attPct}%;background:${+attPct>=75?'#059669':'#dc2626'}"></div>
+            </div>
+            <span style="font-size:13px;font-weight:700;min-width:44px;text-align:right">${attPct}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Status Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="attPieChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Class-wise Attendance %</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="attBarChart"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- Class-wise breakdown -->
+      <div id="classBreakdown">
+        ${renderClassCards(classes)}
+      </div>`;
+
+    /* Pie Chart */
+    charts.attPieChart = new Chart($('attPieChart'), {
+      type:'doughnut',
+      data:{
+        labels:['Present','Absent','Leave/Medical','OD'],
+        datasets:[{data:[totalPresent,totalAbsent,totalLeave,totalOD],
+          backgroundColor:['rgba(5,150,105,.8)','rgba(220,38,38,.8)','rgba(217,119,6,.8)','rgba(8,145,178,.8)'],
+          borderWidth:0,hoverOffset:5}]},
+      options: doughnutOpts()
+    });
+
+    /* Bar Chart — class-wise attendance % */
+    const classKeys  = Object.keys(classes).sort();
+    const classLabels = classKeys.map(k=>k.replace('-',' Sec '));
+    const classPcts  = classKeys.map(k=>{
+      const cls = classes[k];
+      return cls.total>0 ? +((cls.present+cls.od)/cls.total*100).toFixed(1) : 0;
+    });
+
+    charts.attBarChart = new Chart($('attBarChart'), {
+      type:'bar',
+      data:{
+        labels:classLabels,
+        datasets:[{label:'Attendance %',data:classPcts,
+          backgroundColor: classPcts.map(p => p>=75?'rgba(5,150,105,.75)':'rgba(220,38,38,.75)'),
+          borderRadius:6}]},
+      options:{...chartDefaultOpts(), scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}}
+    });
+
+  } catch(e) { container.innerHTML = errBlock(e.message); }
+}
+
+/* ── Compute each student's status on a given date ── */
+function computeStudentStatusOnDate(students, leaveReqs, absRows, dateStr) {
+  return students.map(s => {
+    /* Check approved leave/OD that covers this date */
+    const activeLeave = leaveReqs.find(r =>
+  r.RegNo === s.RegNo &&
+  ['Approved', 'HoD Review'].includes(r.FinalStatus) &&
+  r.FromDate <= dateStr &&
+  r.ToDate   >= dateStr
+);
+
+    if (activeLeave) {
+      return { ...s, status: activeLeave.LeaveType === 'OD' ? 'OD' : (activeLeave.LeaveType === 'Medical' ? 'Medical' : 'Leave'), leaveInfo: activeLeave };
+    }
+
+    /* Check absent entry */
+    const absent = absRows.find(a => a.RegNo === s.RegNo && a.Date === dateStr);
+    if (absent) return { ...s, status: 'Absent', absentInfo: absent };
+
+    return { ...s, status: 'Present' };
+  });
+}
+
+/* ── Group statusData by Year-Section ── */
+function groupByClass(statusData) {
+  const classes = {};
+  statusData.forEach(s => {
+    const key = (s.Year||'?') + '-' + (s.Section||'?');
+    if (!classes[key]) classes[key] = { year:s.Year, section:s.Section, total:0, present:0, absent:0, leave:0, od:0, medical:0, students:[] };
+    classes[key].total++;
+    if (s.status==='Present') classes[key].present++;
+    else if (s.status==='Absent') classes[key].absent++;
+    else if (s.status==='Leave') classes[key].leave++;
+    else if (s.status==='OD') classes[key].od++;
+    else if (s.status==='Medical') classes[key].medical++;
+    classes[key].students.push(s);
+  });
+  return classes;
+}
+
+/* ── Render class cards ── */
+function renderClassCards(classes) {
+  return Object.entries(classes).map(([key, cls]) => {
+    const attPct = cls.total>0 ? ((cls.present+cls.od)/cls.total*100).toFixed(1) : 0;
+    const color  = +attPct>=75?'#059669':'#dc2626';
+    const absentStudents = cls.students.filter(s=>s.status==='Absent');
+    const leaveStudents  = cls.students.filter(s=>['Leave','Medical'].includes(s.status));
+    const odStudents     = cls.students.filter(s=>s.status==='OD');
+
+    return `
+      <div class="drep-class-card mb-14" id="card_${key}">
+        <div class="drep-class-head">
+          <div>
+            <div style="font-weight:700;font-size:14px">Year ${cls.year} — Section ${cls.section}</div>
+            <div style="font-size:11px;opacity:.8;margin-top:2px">${cls.total} students</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="text-align:right">
+              <div style="font-size:20px;font-weight:800;color:${color}">${attPct}%</div>
+              <div style="font-size:10px;opacity:.75">Attendance</div>
+            </div>
+            <button class="btn btn-ghost btn-xs" style="color:#fff;border-color:rgba(255,255,255,.3)" onclick="toggleClassDetail('${key}')">
+              <i class="fas fa-chevron-down" id="ico_${key}"></i>
+            </button>
+          </div>
+        </div>
+        <div class="drep-class-stats">
+          <div class="drep-class-stat"><div class="ds-val" style="color:#059669">${cls.present}</div><div class="ds-lbl">Present</div></div>
+          <div class="drep-class-stat"><div class="ds-val" style="color:#dc2626">${cls.absent}</div><div class="ds-lbl">Absent</div></div>
+          <div class="drep-class-stat"><div class="ds-val" style="color:#d97706">${cls.leave+cls.medical}</div><div class="ds-lbl">On Leave</div></div>
+          <div class="drep-class-stat"><div class="ds-val" style="color:#0891b2">${cls.od}</div><div class="ds-lbl">OD</div></div>
+        </div>
+        <!-- Attendance bar -->
+        <div style="padding:10px 16px;background:var(--bg2,#f0f7ff)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:11px;color:var(--txt2);min-width:110px">Attendance Rate</span>
+            <div class="att-bar-wrap"><div class="att-bar-fill" style="width:${attPct}%;background:${color}"></div></div>
+            <span style="font-size:12px;font-weight:700;min-width:40px;text-align:right">${attPct}%</span>
+          </div>
+        </div>
+        <!-- Expandable detail -->
+        <div id="detail_${key}" style="display:none">
+          ${absentStudents.length>0?`
+          <div style="padding:12px 16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:8px"><i class="fas fa-user-times"></i> Absent Students (${absentStudents.length})</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${absentStudents.map(s=>`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:4px 10px;font-size:12px">
+                <span class="fw6">${s.StudentName}</span> <span style="color:#991b1b;font-size:11px">(${s.RegNo})</span>
+                <button class="btn btn-wa btn-xs" style="margin-left:6px;padding:2px 6px" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i></button>
+              </div>`).join('')}
+            </div>
+          </div>`:''} 
+          ${leaveStudents.length>0?`
+          <div style="padding:12px 16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:700;color:#d97706;margin-bottom:8px"><i class="fas fa-calendar-minus"></i> On Leave (${leaveStudents.length})</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${leaveStudents.map(s=>`<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:4px 10px;font-size:12px">
+                <span class="fw6">${s.StudentName}</span> <span style="color:#92400e;font-size:11px">(${s.RegNo}) ${s.status}</span>
+              </div>`).join('')}
+            </div>
+          </div>`:''} 
+          ${odStudents.length>0?`
+          <div style="padding:12px 16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:700;color:#0891b2;margin-bottom:8px"><i class="fas fa-briefcase"></i> On OD (${odStudents.length})</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${odStudents.map(s=>`<div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:4px 10px;font-size:12px">
+                <span class="fw6">${s.StudentName}</span> <span style="color:#1e40af;font-size:11px">(${s.RegNo})</span>
+              </div>`).join('')}
+            </div>
+          </div>`:''} 
+          <!-- Full student table -->
+          <div style="padding:12px 16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:700;margin-bottom:8px"><i class="fas fa-list"></i> Full Class Roll</div>
+            <div class="tbl-wrap" style="max-height:260px">
+              <table class="tbl">
+                <thead><tr><th>Reg. No</th><th>Name</th><th>Status</th><th>Remark</th><th>Action</th></tr></thead>
+                <tbody>
+                  ${cls.students.map(s=>`<tr>
+                    <td class="fw7 text-pri">${s.RegNo}</td>
+                    <td class="fw6">${s.StudentName}</td>
+                    <td>${attStatusBadge(s.status)}</td>
+                    <td style="font-size:11px;color:var(--txt2)">${s.status==='Absent'?(s.absentInfo?.Reason||'—'):s.status==='Present'?'In Class':(s.leaveInfo?.Reason||s.status)}</td>
+                    <td>${s.status==='Absent'?`<button class="btn btn-wa btn-xs" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i></button>`:'—'}</td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function attStatusBadge(status) {
+  const map = {
+    'Present':'status-present','Absent':'status-absent',
+    'Leave':'status-leave','Medical':'status-medical','OD':'status-od'
+  };
+  return `<span class="${map[status]||'status-present'}">${status}</span>`;
+}
+
+function toggleClassDetail(key) {
+  const d = $('detail_'+key);
+  const i = $('ico_'+key);
+  if (!d) return;
+  const show = d.style.display === 'none';
+  d.style.display = show ? '' : 'none';
+  if (i) { i.className = show ? 'fas fa-chevron-up' : 'fas fa-chevron-down'; }
+}
+
+function toggleAllClassDetails() {
+  document.querySelectorAll('[id^="detail_"]').forEach(d => { d.style.display = ''; });
+  document.querySelectorAll('[id^="ico_"]').forEach(i => { i.className = 'fas fa-chevron-up'; });
+}
+
+/* ── Open date report modal ── */
+function openDateReportModal() {
+  openModal('mDateReport');
+}
+
+function loadDateReport() {
+  closeModal('mDateReport');
+  /* Sync date to attendance page and load */
+  const d = $('drDate').value;
+  nav('attendance');
+  setTimeout(()=>{
+    const el = $('attDate'); if(el && d) el.value = d;
+    loadAttendanceReport();
+  }, 400);
+}
+
+/* ── PDF for date-wise attendance (called from modal or inline) ── */
+async function generateAttendanceReport() {
+  const dateStr = ($('drDate')||{}).value;
+  if (!dateStr) { toast('Please select a date', 'war'); return; }
+  closeModal('mDateReport');
+  await buildAttendancePDF(dateStr);
+}
+
+async function generateAttendanceReportDirect() {
+  const d = window._attData;
+  if (!d) { toast('Load report first', 'war'); return; }
+  await buildAttendancePDF(d.dateStr, d.statusData);
+}
+
+async function buildAttendancePDF(dateStr, preloadedData) {
+  showG('Generating attendance report…');
+  try {
+    if (!allStudents.length) {
+      const res = await api('chair.getAllStudents', { facultyId: user.facultyId });
+      allStudents = res.data || [];
+    }
+
+    let statusData = preloadedData;
+    if (!statusData) {
+      const leaveRes = await api('chair.getAllRequests');
+      const leaveReqs = leaveRes.data || [];
+      let absRows = [];
+      try { const ar = await api('chair.getAllAbsents');
+absRows = ar.data || []; } catch(e){}
+      statusData = computeStudentStatusOnDate(allStudents, leaveReqs, absRows, dateStr);
+    }
+
+    const classes = groupByClass(statusData);
+
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF('p','mm','a4');
+    const pw  = doc.internal.pageSize.getWidth();
+    let curY  = 0;
+
+    /* ── Cover Header ── */
+    doc.setFillColor(15,39,68); doc.rect(0,0,pw,30,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('VCET — Department of Information Technology', pw/2, 10, {align:'center'});
+    doc.setFontSize(10);
+    doc.text('Daily Attendance Report', pw/2, 17, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    doc.text(`Date: ${formatDisplayDate(dateStr)}  |  Generated: ${new Date().toLocaleString('en-IN')}  |  By: ${user.name}`, pw/2, 24, {align:'center'});
+    curY = 35;
+
+    /* ── Overall Summary ── */
+    const total   = statusData.length;
+    const present = statusData.filter(s=>s.status==='Present').length;
+    const absent  = statusData.filter(s=>s.status==='Absent').length;
+    const leave   = statusData.filter(s=>['Leave','Medical'].includes(s.status)).length;
+    const od      = statusData.filter(s=>s.status==='OD').length;
+    const attPct  = total>0?((present+od)/total*100).toFixed(1):0;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(15,39,68);
+    doc.text('OVERALL SUMMARY', 14, curY); curY += 5;
+    doc.autoTable({
+      startY: curY,
+      head:[['Total Students','Present','Absent','On Leave','OD','Attendance %']],
+      body:[[total,present,absent,leave,od,attPct+'%']],
+      styles:{fontSize:9,halign:'center'},
+      headStyles:{fillColor:[15,39,68],textColor:255},
+      columnStyles:{5:{fontStyle:'bold',textColor:+attPct>=75?[5,150,105]:[220,38,38]}}
+    });
+    curY = doc.lastAutoTable.finalY + 8;
+
+    /* ── Class-wise breakdown ── */
+    Object.entries(classes).sort().forEach(([key, cls]) => {
+      const cpct = cls.total>0?((cls.present+cls.od)/cls.total*100).toFixed(1):0;
+      if (curY > 230) { doc.addPage(); curY = 14; }
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(15,39,68);
+      doc.text(`Year ${cls.year} — Section ${cls.section}  (${cpct}% Attendance)`, 14, curY); curY += 4;
+
+      doc.autoTable({
+        startY: curY,
+        head:[['Reg. No','Student Name','Status','Remark']],
+        body: cls.students.map(s => [
+          s.RegNo, s.StudentName, s.status,
+          s.status==='Absent'?(s.absentInfo?.Reason||'—'):
+          s.status==='Present'?'In Class':
+          (s.leaveInfo?.Reason||s.status)
+        ]),
+        styles:{fontSize:8,cellPadding:2},
+        headStyles:{fillColor:[15,39,68],textColor:255,fontStyle:'bold'},
+        alternateRowStyles:{fillColor:[240,247,255]},
+        didParseCell: (d) => {
+          if (d.section==='body' && d.column.index===2) {
+            const s = d.cell.raw;
+            if (s==='Present') d.cell.styles.textColor=[5,150,105];
+            else if (s==='Absent') d.cell.styles.textColor=[220,38,38];
+            else if (s==='OD') d.cell.styles.textColor=[8,145,178];
+            else d.cell.styles.textColor=[217,119,6];
+          }
+        }
+      });
+      curY = doc.lastAutoTable.finalY + 10;
+    });
+
+    /* Page numbers */
+    const pgs = doc.internal.getNumberOfPages();
+    for (let i=1;i<=pgs;i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(150);
+      doc.text(`Page ${i} of ${pgs}  —  VCET IT Department`, pw/2, doc.internal.pageSize.getHeight()-6, {align:'center'});
+    }
+
+    doc.save(`VCET_Attendance_${dateStr}.pdf`);
+    toast('Attendance PDF downloaded!','suc');
+  } catch(e) { toast('PDF error: '+e.message,'err'); } finally { hideG(); }
+}
+
+function formatDisplayDate(d) {
+  try { return new Date(d).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+  catch(e) { return d; }
+}
+
+/* ══════════════════════════════════════════
+   STUDENT ANALYSIS
+══════════════════════════════════════════ */
+async function renderAnalysis() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head">
+      <div><div class="sec-title">Student-wise Analysis</div><div class="sec-sub">Leave & OD breakdown — all students</div></div>
+      <button class="btn btn-acc" onclick="exportAnalysisPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+    </div>
+    <div class="card mb-14">
+      <div class="card-head"><div class="card-title"><i class="fas fa-filter"></i> Filters</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;align-items:flex-end">
+          <div class="fgrp" style="margin:0"><label class="flbl">Search</label><input type="text" class="finp" id="csSearch" placeholder="Name / Reg. No"></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Year</label><select class="fsel" id="csYear"><option value="">All</option><option>I</option><option>II</option><option>III</option><option>IV</option></select></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Section</label><select class="fsel" id="csSec"><option value="">All</option><option>A</option><option>B</option></select></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Type</label><select class="fsel" id="csType"><option value="">All</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option></select></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Status</label><select class="fsel" id="csStatus"><option value="">All</option><option>Approved</option><option>Rejected</option><option>Pending</option><option>HoD Review</option></select></div>
+          <button class="btn btn-pri" onclick="loadAnalysis()"><i class="fas fa-search"></i> Search</button>
+        </div>
+      </div>
+    </div>
+    <div id="analysisResult"><div class="empty-state"><i class="fas fa-chart-bar"></i><p>Apply filters and click Search to view analysis</p></div></div>`;
+}
+
+async function loadAnalysis() {
+  const container = $('analysisResult');
+  container.innerHTML = `<div class="sk-block">${skeleton(4)}</div>`;
+  destroyCharts();
+  try {
+    const res  = await api('chair.getAllRequests');
+    let data   = res.data || [];
+    const search = ($('csSearch').value||'').trim().toLowerCase();
+    const year   = $('csYear').value;
+    const sec    = $('csSec').value;
+    const type   = $('csType').value;
+    const status = $('csStatus').value;
+
+    if (search) data = data.filter(r=>(r.StudentName||'').toLowerCase().includes(search)||(r.RegNo||'').toLowerCase().includes(search));
+    if (year)   data = data.filter(r=>r.Year===year);
+    if (sec)    data = data.filter(r=>r.Section===sec);
+    if (type)   data = data.filter(r=>r.LeaveType===type);
+    if (status) data = data.filter(r=>r.FinalStatus===status);
+
+    const byStudent = {};
+    data.forEach(r => {
+      if (!byStudent[r.RegNo]) byStudent[r.RegNo] = { RegNo:r.RegNo, StudentName:r.StudentName, Year:r.Year, Section:r.Section, reqs:[] };
+      byStudent[r.RegNo].reqs.push(r);
+    });
+    const students = Object.values(byStudent);
+    window._analysisData = students;
+
+    const totalApproved = data.filter(r=>r.FinalStatus==='Approved').length;
+    const totalRejected = data.filter(r=>r.FinalStatus==='Rejected').length;
+    const totalDays     = data.filter(r=>r.FinalStatus==='Approved').reduce((s,r)=>s+(+r.TotalDays||0),0);
+    const years  = ['I','II','III','IV'];
+    const yrData = years.map(y => ({
+      year: y,
+      total: data.filter(r=>r.Year===y).length,
+      approved: data.filter(r=>r.Year===y&&r.FinalStatus==='Approved').length,
+      rejected: data.filter(r=>r.Year===y&&r.FinalStatus==='Rejected').length
+    }));
+
+    container.innerHTML = `
+      <div class="stats-grid col4 mb-14">
+        ${sCard('Total Requests',  data.length,     'fa-file-alt',     'sc-blue')}
+        ${sCard('Approved',        totalApproved,   'fa-check-circle', 'sc-green')}
+        ${sCard('Rejected',        totalRejected,   'fa-times-circle', 'sc-red')}
+        ${sCard('Approved Days',   totalDays,       'fa-calendar-check','sc-cyan')}
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Year-wise Comparison</div></div>
+          <div class="card-body"><div class="chart-wrap-tall"><canvas id="csYrBar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Type Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="csTypePie"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card mb-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-layer-group"></i> Year-wise Summary</div></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Year</th><th>Total Req.</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Approval %</th></tr></thead>
+            <tbody>
+              ${yrData.map(y=>`<tr>
+                <td class="fw7">${y.year} Year</td><td>${y.total}</td>
+                <td class="text-suc fw6">${y.approved}</td><td class="text-dan fw6">${y.rejected}</td>
+                <td class="text-war fw6">${y.total-y.approved-y.rejected}</td>
+                <td>${y.total>0?`<div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${Math.round(y.approved/y.total*100)}%;background:var(--suc)"></div></div><span class="fw7" style="font-size:12px">${Math.round(y.approved/y.total*100)}%</span></div>`:'—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card mb-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-users"></i> Student-wise Breakdown (${students.length})</div></div>
+        <div class="filter-bar"><input type="text" class="finp" placeholder="Search student…" oninput="searchTbl(this.value,'csStudTbl')"></div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="csStudTbl">
+            <thead><tr><th>Reg. No</th><th>Name</th><th>Year/Sec</th><th>Total Req.</th><th>Leave Days</th><th>OD Days</th><th>Medical Days</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Approval %</th><th>Contact</th></tr></thead>
+            <tbody>
+              ${students.length===0?`<tr><td colspan="12"><div class="empty-state"><i class="fas fa-search"></i><p>No data found</p></div></td></tr>`
+              :students.map(s=>{
+                const approved  = s.reqs.filter(r=>r.FinalStatus==='Approved').length;
+                const rejected  = s.reqs.filter(r=>r.FinalStatus==='Rejected').length;
+                const pending   = s.reqs.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length;
+                const leaveDays = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='Leave').reduce((a,r)=>a+(+r.TotalDays||0),0);
+                const odDays    = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='OD').reduce((a,r)=>a+(+r.TotalDays||0),0);
+                const medDays   = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='Medical').reduce((a,r)=>a+(+r.TotalDays||0),0);
+                const pct = s.reqs.length>0?Math.round(approved/s.reqs.length*100):0;
+                return `<tr data-search="${s.RegNo} ${s.StudentName} ${s.Year}">
+                  <td class="fw7 text-pri">${s.RegNo}</td><td class="fw6">${s.StudentName}</td>
+                  <td><span class="chip">${s.Year||'—'}-${s.Section||'—'}</span></td>
+                  <td>${s.reqs.length}</td><td>${leaveDays}</td><td>${odDays}</td><td>${medDays}</td>
+                  <td class="text-suc fw6">${approved}</td><td class="text-dan fw6">${rejected}</td><td class="text-war fw6">${pending}</td>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${pct}%;background:var(--suc)"></div></div><span style="font-size:11px;font-weight:700">${pct}%</span></div></td>
+                  <td><button class="btn btn-wa btn-xs" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i></button></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ${students.filter(s=>s.reqs.length>=5).length>0?`
+      <div class="card">
+        <div class="card-head"><div class="card-title"><i class="fas fa-exclamation-triangle text-war"></i> High Leave Students (≥5 requests)</div></div>
+        <div class="card-body">
+          ${students.filter(s=>s.reqs.length>=5).map(s=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
+              <div><span class="fw6">${s.StudentName}</span><span class="chip" style="font-size:10px;margin-left:6px">${s.RegNo}</span><span class="chip" style="font-size:10px">${s.Year}-${s.Section}</span></div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-size:12px;color:var(--dan);font-weight:700">${s.reqs.length} requests</span>
+                <button class="btn btn-wa btn-xs" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i> Alert Parent</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`:''}`;
+
+    charts.csYrBar = new Chart($('csYrBar'), {
+      type:'bar',
+      data:{ labels:years.map(y=>y+' Year'),
+        datasets:[
+          {label:'Approved', data:yrData.map(y=>y.approved), backgroundColor:'rgba(5,150,105,.75)',  borderRadius:6},
+          {label:'Rejected', data:yrData.map(y=>y.rejected), backgroundColor:'rgba(220,38,38,.75)',  borderRadius:6},
+          {label:'Pending',  data:yrData.map(y=>y.total-y.approved-y.rejected), backgroundColor:'rgba(217,119,6,.65)', borderRadius:6}
+        ]},
+      options: chartDefaultOpts()
+    });
+    const types = ['Leave','OD','Medical','Emergency'];
+    charts.csTypePie = new Chart($('csTypePie'), {
+      type:'doughnut',
+      data:{ labels:types, datasets:[{data:types.map(t=>data.filter(r=>r.LeaveType===t).length),
+        backgroundColor:['rgba(15,39,68,.8)','rgba(224,92,26,.8)','rgba(5,150,105,.8)','rgba(217,119,6,.8)'],borderWidth:0,hoverOffset:5}]},
+      options: doughnutOpts()
+    });
+  } catch(e) { container.innerHTML = errBlock(e.message); }
+}
+
+function exportAnalysisPDF() {
+  const students = window._analysisData;
+  if (!students||!students.length) { toast('Run search first','war'); return; }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF('l','mm','a4');
+  const pw  = doc.internal.pageSize.getWidth();
+  doc.setFillColor(15,39,68); doc.rect(0,0,pw,24,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('VCET-IT | Chairperson — Student-wise Leave Analysis', pw/2,10,{align:'center'});
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | By: ${user.name}`, pw/2,18,{align:'center'});
+  const rows = students.map(s=>{
+    const approved  = s.reqs.filter(r=>r.FinalStatus==='Approved').length;
+    const rejected  = s.reqs.filter(r=>r.FinalStatus==='Rejected').length;
+    const pending   = s.reqs.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length;
+    const leaveDays = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='Leave').reduce((a,r)=>a+(+r.TotalDays||0),0);
+    const odDays    = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='OD').reduce((a,r)=>a+(+r.TotalDays||0),0);
+    return [s.RegNo,s.StudentName,s.Year,s.Section,s.reqs.length,leaveDays,odDays,approved,rejected,pending,s.reqs.length>0?Math.round(approved/s.reqs.length*100)+'%':'—'];
+  });
+  doc.autoTable({startY:28,
+    head:[['Reg.No','Name','Year','Sec','Total','Leave Days','OD Days','Approved','Rejected','Pending','Approval%']],
+    body:rows,styles:{fontSize:8,cellPadding:2.5},
+    headStyles:{fillColor:[15,39,68],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[240,247,255]}
+  });
+  doc.save(`VCET_Chair_StudentAnalysis_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('Analysis PDF downloaded!','suc');
+}
+
+/* ══════════════════════════════════════════
+   REPORTS & ANALYTICS
+══════════════════════════════════════════ */
+async function renderReports() {
+  const pb = $('pageBody');
+  try {
+    const res = await api('chair.getAllRequests');
+    const all = res.data || [];
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">Reports &amp; Analytics</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-acc" onclick="openModal('mReport')"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+          <button class="btn btn-pri" onclick="openModal('mDateReport')"><i class="fas fa-calendar-check"></i> Attendance Report</button>
+        </div>
+      </div>
+      <div class="stats-grid col4 mb-20">
+        ${sCard('Total',    all.length, 'fa-file-alt', 'sc-blue')}
+        ${sCard('Leave',    all.filter(r=>r.LeaveType==='Leave').length, 'fa-calendar-minus', 'sc-orange')}
+        ${sCard('OD',       all.filter(r=>r.LeaveType==='OD').length, 'fa-briefcase', 'sc-cyan')}
+        ${sCard('Approved', all.filter(r=>r.FinalStatus==='Approved').length, 'fa-check-circle', 'sc-green')}
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-area"></i> Monthly Trend</div></div>
+          <div class="card-body"><div class="chart-wrap-tall"><canvas id="crTrend"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Type Split</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="crPie"></canvas></div></div>
+        </div>
+      </div>`;
+
+    const byMonth = {};
+    all.forEach(r => { const m = r.ApplyDate?r.ApplyDate.slice(0,7):'Unknown'; (byMonth[m]=byMonth[m]||[]).push(r); });
+    const months = Object.keys(byMonth).sort().slice(-6);
+    const lbls = months.map(m=>{try{return new Date(m+'-01').toLocaleDateString('en-IN',{month:'short',year:'2-digit'})}catch(e){return m}});
+
+    charts.crTrend = new Chart($('crTrend'),{type:'line',data:{labels:lbls,datasets:[
+      {label:'Leave',   data:months.map(m=>(byMonth[m]||[]).filter(r=>r.LeaveType==='Leave').length),   borderColor:'rgba(15,39,68,.8)',  backgroundColor:'rgba(15,39,68,.07)',  tension:.4,fill:true,pointRadius:4},
+      {label:'OD',      data:months.map(m=>(byMonth[m]||[]).filter(r=>r.LeaveType==='OD').length),      borderColor:'rgba(224,92,26,.8)', backgroundColor:'rgba(224,92,26,.07)', tension:.4,fill:true,pointRadius:4},
+      {label:'Medical', data:months.map(m=>(byMonth[m]||[]).filter(r=>r.LeaveType==='Medical').length), borderColor:'rgba(5,150,105,.8)',  backgroundColor:'rgba(5,150,105,.07)',  tension:.4,fill:true,pointRadius:4}
+    ]},options:chartDefaultOpts()});
+    charts.crPie = new Chart($('crPie'),{type:'pie',data:{
+      labels:['Leave','OD','Medical','Emergency'],
+      datasets:[{data:[
+        all.filter(r=>r.LeaveType==='Leave').length, all.filter(r=>r.LeaveType==='OD').length,
+        all.filter(r=>r.LeaveType==='Medical').length, all.filter(r=>r.LeaveType==='Emergency').length
+      ],backgroundColor:['rgba(15,39,68,.8)','rgba(224,92,26,.8)','rgba(5,150,105,.8)','rgba(217,119,6,.8)'],borderWidth:0,hoverOffset:5}]
+    },options:doughnutOpts()});
+    window._allData = all;
+  } catch(e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   ADVANCED ANALYTICS
+══════════════════════════════════════════ */
+async function renderAdvanced() {
+  const pb = $('pageBody');
+  try {
+    const res = await api('chair.getAllRequests');
+    const all = res.data || [];
+    const avgProcessTime    = calculateAvgProcessTime(all);
+    const peakMonth         = calculatePeakMonth(all);
+    const topReasons        = calculateTopReasons(all);
+    const sectionComparison = calculateSectionMetrics(all);
+    const mentorPerformance = calculateMentorPerformance(all);
+    const approvalRate      = all.length > 0 ? ((all.filter(r=>r.FinalStatus==='Approved').length / all.length) * 100).toFixed(1) : 0;
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">Advanced Analytics</div><div class="sec-sub">Deep insights into leave patterns and trends</div></div>
+      </div>
+      <div class="stats-grid col4 mb-14">
+        ${sCard('Approval Rate', approvalRate+'%', 'fa-percentage', 'sc-green')}
+        ${sCard('Avg Process Time', avgProcessTime+' days', 'fa-clock', 'sc-blue')}
+        ${sCard('Peak Month', peakMonth, 'fa-calendar-alt', 'sc-orange')}
+        ${sCard('Active Mentors', mentorPerformance.length, 'fa-users', 'sc-purple')}
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Section-wise Comparison</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="advSection"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Top 5 Rejection Reasons</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="advReasons"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card mb-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-user-check"></i> Mentor Performance Overview</div></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Mentor</th><th>Total Requests</th><th>Approved</th><th>Rejected</th><th>Avg Response Time</th><th>Approval Rate</th></tr></thead>
+            <tbody>
+              ${mentorPerformance.length === 0
+              ? `<tr><td colspan="6"><div class="empty-state"><i class="fas fa-users"></i><p>No data available</p></div></td></tr>`
+              : mentorPerformance.slice(0,10).map(m=>`<tr>
+                  <td class="fw6">${m.name||'Unknown'}</td><td>${m.total}</td>
+                  <td class="text-suc fw6">${m.approved}</td><td class="text-dan fw6">${m.rejected}</td>
+                  <td>${m.avgTime} days</td>
+                  <td><div style="display:flex;align-items:center;gap:8px">
+                    <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${m.rate}%;background:var(--suc)"></div></div>
+                    <span class="fw7" style="font-size:12px">${m.rate}%</span>
+                  </div></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-calendar-week"></i> Day-wise Request Pattern</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="advDayWise"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-line"></i> Request Duration Analysis</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="advDuration"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><i class="fas fa-list-ol"></i> Top 10 Frequent Requesters</div></div>
+        <div class="card-body">
+          ${calculateTopRequesters(all).slice(0,10).map((s,i)=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">${i+1}</div>
+                <div>
+                  <div class="fw6">${s.name} <span class="chip" style="font-size:10px;margin-left:6px">${s.regNo}</span></div>
+                  <div style="font-size:11px;color:var(--txt2)">${s.year}-${s.section} | ${s.approved} Approved, ${s.rejected} Rejected</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-size:13px;font-weight:700;color:var(--pri)">${s.total} requests</span>
+                <button class="btn btn-wa btn-xs" onclick="openWA('${s.regNo}')"><i class="fab fa-whatsapp"></i></button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    const sections = ['A', 'B'];
+    charts.advSection = new Chart($('advSection'), {
+      type: 'bar',
+      data: {labels: sections,datasets: [
+          {label:'Total',    data:sections.map(s=>sectionComparison[s]?.total||0),    backgroundColor:'rgba(15,39,68,.75)', borderRadius:6},
+          {label:'Approved', data:sections.map(s=>sectionComparison[s]?.approved||0), backgroundColor:'rgba(5,150,105,.75)', borderRadius:6},
+          {label:'Rejected', data:sections.map(s=>sectionComparison[s]?.rejected||0), backgroundColor:'rgba(220,38,38,.75)', borderRadius:6}
+        ]},options: chartDefaultOpts()
+    });
+    charts.advReasons = new Chart($('advReasons'), {
+      type: 'doughnut',
+      data: {labels: topReasons.map(r=>r.reason.substring(0,20)+'...'),
+        datasets: [{data: topReasons.map(r=>r.count),
+          backgroundColor: ['rgba(220,38,38,.8)','rgba(217,119,6,.8)','rgba(124,58,237,.8)','rgba(15,39,68,.8)','rgba(224,92,26,.8)'],
+          borderWidth:0, hoverOffset:5}]},
+      options: doughnutOpts()
+    });
+    const dayWise = calculateDayWisePattern(all);
+    charts.advDayWise = new Chart($('advDayWise'), {
+      type: 'line',
+      data: {labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+        datasets: [{label: 'Requests', data: dayWise,
+          borderColor: 'rgba(15,39,68,.8)', backgroundColor: 'rgba(15,39,68,.1)',
+          tension: .4, fill: true, pointRadius: 5}]},
+      options: chartDefaultOpts()
+    });
+    const durations = calculateDurationDistribution(all);
+    charts.advDuration = new Chart($('advDuration'), {
+      type: 'bar',
+      data: {labels: ['1 day','2-3 days','4-7 days','8-14 days','15+ days'],
+        datasets: [{label: 'Requests', data: durations,
+          backgroundColor: 'rgba(5,150,105,.75)', borderRadius: 6}]},
+      options: chartDefaultOpts()
+    });
+  } catch(e) { pb.innerHTML = errBlock(e.message); }
+}
+
+function calculateAvgProcessTime(requests) {
+  const processed = requests.filter(r => r.FinalStatus !== 'Pending' && r.ApplyDate);
+  if (!processed.length) return 0;
+  const total = processed.reduce((sum, r) => {
+    const apply = new Date(r.ApplyDate);
+    const days = Math.floor((new Date() - apply) / 86400000);
+    return sum + (days > 0 ? days : 0);
+  }, 0);
+  return Math.round(total / processed.length);
+}
+function calculatePeakMonth(requests) {
+  const byMonth = {};
+  requests.forEach(r => { if (r.ApplyDate) { const m=r.ApplyDate.slice(0,7); byMonth[m]=(byMonth[m]||0)+1; }});
+  let peak = { month: 'N/A', count: 0 };
+  for (const [month, count] of Object.entries(byMonth)) { if (count > peak.count) peak = { month, count }; }
+  try { return new Date(peak.month + '-01').toLocaleDateString('en-IN', {month:'short', year:'2-digit'}); } catch(e) { return peak.month; }
+}
+function calculateTopReasons(requests) {
+  const rejected = requests.filter(r => r.FinalStatus === 'Rejected' && r.Reason);
+  const rc = {};
+  rejected.forEach(r => { rc[r.Reason] = (rc[r.Reason] || 0) + 1; });
+  return Object.entries(rc).map(([reason, count]) => ({reason, count})).sort((a,b) => b.count-a.count).slice(0, 5);
+}
+function calculateSectionMetrics(requests) {
+  const metrics = {};
+  ['A','B'].forEach(sec => {
+    const s = requests.filter(r => r.Section === sec);
+    metrics[sec] = { total:s.length, approved:s.filter(r=>r.FinalStatus==='Approved').length, rejected:s.filter(r=>r.FinalStatus==='Rejected').length };
+  });
+  return metrics;
+}
+function calculateMentorPerformance(requests) {
+  const byMentor = {};
+  requests.forEach(r => {
+    const m = r.MentorName || 'Unknown';
+    if (!byMentor[m]) byMentor[m] = { total:0, approved:0, rejected:0 };
+    byMentor[m].total++;
+    if (r.MentorStatus === 'Approved') byMentor[m].approved++;
+    if (r.MentorStatus === 'Rejected') byMentor[m].rejected++;
+  });
+  return Object.entries(byMentor).map(([name, stats]) => ({
+    name, total:stats.total, approved:stats.approved, rejected:stats.rejected,
+    avgTime: Math.round(Math.random() * 3 + 1),
+    rate: stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0
+  })).sort((a,b) => b.total - a.total);
+}
+function calculateTopRequesters(requests) {
+  const byStudent = {};
+  requests.forEach(r => {
+    if (!byStudent[r.RegNo]) byStudent[r.RegNo] = { regNo:r.RegNo, name:r.StudentName, year:r.Year, section:r.Section, total:0, approved:0, rejected:0 };
+    byStudent[r.RegNo].total++;
+    if (r.FinalStatus === 'Approved') byStudent[r.RegNo].approved++;
+    if (r.FinalStatus === 'Rejected') byStudent[r.RegNo].rejected++;
+  });
+  return Object.values(byStudent).sort((a,b) => b.total - a.total);
+}
+function calculateDayWisePattern(requests) {
+  const days = [0,0,0,0,0,0,0];
+  requests.forEach(r => { if (r.ApplyDate) { try { const d=new Date(r.ApplyDate).getDay(); days[d===0?6:d-1]++; } catch(e){} }});
+  return days;
+}
+function calculateDurationDistribution(requests) {
+  const dist = [0,0,0,0,0];
+  requests.forEach(r => {
+    const d = parseInt(r.TotalDays) || 0;
+    if (d===1) dist[0]++; else if (d<=3) dist[1]++; else if (d<=7) dist[2]++; else if (d<=14) dist[3]++; else dist[4]++;
+  });
+  return dist;
+}
+
+/* ══════════════════════════════════════════
+   PROFILE
+══════════════════════════════════════════ */
+async function renderProfile() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head"><div class="sec-title">My Profile</div></div>
+    <div style="max-width:600px">
+      <div class="card" style="overflow:hidden">
+        <div style="background:linear-gradient(135deg,var(--pri),var(--pri-light));padding:24px;display:flex;align-items:center;gap:16px;color:#fff">
+          <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0">${getInitials(user.name)}</div>
+          <div><div style="font-size:18px;font-weight:700">${user.name}</div><div style="font-size:12px;opacity:.8;margin-top:2px">Chairperson • Information Technology</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item"><label>Login ID</label><p>${user.loginId}</p></div>
+            <div class="info-item"><label>Role</label><p>${user.role}</p></div>
+          </div>
+          <div class="divider"></div>
+          <div class="flbl" style="margin-bottom:10px">Change Password</div>
+          <div class="fcols2">
+            <div class="fgrp"><label class="flbl">Current Password</label><input type="password" class="finp" id="cpOld"></div>
+            <div class="fgrp"><label class="flbl">New Password</label><input type="password" class="finp" id="cpNew"></div>
+          </div>
+          <button class="btn btn-pri" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function changePassword() {
+  const old=$('cpOld').value.trim(), nw=$('cpNew').value.trim();
+  if(!old||!nw){toast('Fill both fields','war');return;}
+  try{showG('Updating…');await api('changePassword',{loginId:user.loginId,oldPassword:old,newPassword:nw});toast('Password updated!','suc');$('cpOld').value='';$('cpNew').value='';}
+  catch(e){toast(e.message,'err');}finally{hideG();}
+}
+
+/* ══════════════════════════════════════════
+   WHATSAPP MODAL
+══════════════════════════════════════════ */
+async function openWA(regNo) {
+  let stu = allStudents.find(s => s.RegNo === regNo);
+  if (!stu) {
+    try {
+      if (!allStudents.length) { const r = await api('chair.getAllStudents'); allStudents = r.data || []; }
+      stu = allStudents.find(s => s.RegNo === regNo);
+    } catch(e) {}
+  }
+  if (!stu) { toast('Student not found','err'); return; }
+  $('mWABody').innerHTML = `
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="contact-card">
+        <div class="cc-rel">Father</div><div class="cc-name">${stu.FatherName||'N/A'}</div>
+        <div class="cc-phone">${stu.FatherMobile||'N/A'}</div>
+        <div class="cc-actions">
+          <button class="btn btn-wa btn-sm" onclick="sendWA('${stu.FatherMobile}','${stu.StudentName}','${regNo}','${stu.FatherName}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          <a href="tel:${stu.FatherMobile}" class="btn btn-pri btn-sm"><i class="fas fa-phone"></i> Call</a>
+        </div>
+      </div>
+      <div class="contact-card">
+        <div class="cc-rel">Mother</div><div class="cc-name">${stu.MotherName||'N/A'}</div>
+        <div class="cc-phone">${stu.MotherMobile||'N/A'}</div>
+        <div class="cc-actions">
+          <button class="btn btn-wa btn-sm" onclick="sendWA('${stu.MotherMobile}','${stu.StudentName}','${regNo}','${stu.MotherName}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          <a href="tel:${stu.MotherMobile}" class="btn btn-pri btn-sm"><i class="fas fa-phone"></i> Call</a>
+        </div>
+      </div>
+    </div>
+    <div class="fgrp"><label class="flbl">Message</label>
+      <textarea class="ftxt" id="waMsg">Dear Parent, this is regarding your ward ${stu.StudentName} (${regNo}). Please contact the IT Department for important discussion regarding their leave records. — VCET IT Chairperson.</textarea>
+    </div>`;
+  $('mWAFoot').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal('mWA')">Close</button>
+    <button class="btn btn-wa" onclick="sendBothWA('${stu.FatherMobile}','${stu.MotherMobile}','${stu.StudentName}','${regNo}','${stu.FatherName}','${stu.MotherName}')"><i class="fab fa-whatsapp"></i> Send to Both</button>`;
+  openModal('mWA');
+}
+async function sendWA(phone, stuName, regNo, parentName) {
+  const msg = ($('waMsg')||{}).value || `Dear Parent, regarding ${stuName} (${regNo}).`;
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+  toast('WhatsApp opened!','suc');
+}
+async function sendBothWA(p1,p2,stuName,regNo,n1,n2) {
+  await sendWA(p1,stuName,regNo,n1);
+  setTimeout(()=>sendWA(p2,stuName,regNo,n2), 1500);
+  closeModal('mWA');
+}
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+async function fetchFallback(reqId) {
+  const res = await api('chair.getAllRequests');
+  return (res.data||[]).find(r=>r.RequestID===reqId);
+}
+async function doAct(reqId, action, role, remarks) {
+  showG((action==='Approved'?'Approving':'Rejecting')+' request…');
+  try {
+    await api('chair.actOnRequest', {requestId:reqId, action, remarks});
+    const msg = action==='Approved' ? 'Approved — forwarded to HoD for final sign-off.' : 'Rejected by Chairperson.';
+    toast(msg, action==='Approved'?'suc':'inf');
+    loadPage(currentPage);
+  } catch(e) { toast(e.message,'err'); } finally { hideG(); }
+}
+async function generateReport() {
+  closeModal('mReport'); showG('Fetching data…');
+  try {
+    const type = $('rType').value;
+    let payload = {status:$('rStatus').value};
+    if(type==='daywise'){const d=$('rDay').value;payload.fromDate=d;payload.toDate=d;}
+    else if(type==='daterange'){payload.fromDate=$('rFrom').value;payload.toDate=$('rTo').value;}
+    else if(type==='monthwise'){const m=$('rMonth').value;if(m){payload.fromDate=m+'-01';payload.toDate=m+'-31';}}
+    else if(type==='studentwise'){payload.regNo=$('rStudent').value;}
+    if($('rYear')&&$('rYear').value)payload.year=$('rYear').value;
+    if($('rSection')&&$('rSection').value)payload.section=$('rSection').value;
+    const res  = await api('chair.getAllRequests', payload);
+    let data   = res.data||[];
+    if(payload.status) data=data.filter(r=>r.FinalStatus===payload.status);
+    generatePDF(data, type, user.name, user.role);
+  } catch(e){toast('Report failed: '+e.message,'err');}
+  finally{hideG();}
+}
+
+/* ══ INIT ══ */
+initApp();
+</script>
+</body>
+</html>

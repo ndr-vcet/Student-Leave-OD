@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VCET-IT | Student Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<div id="toastZone"></div>
+<div class="global-loader" id="gLoader" style="display:none">
+  <div class="spinner"></div>
+  <div class="loader-txt" id="gLoaderTxt">Loading…</div>
+</div>
+
+<!-- APPLY LEAVE MODAL -->
+<div class="modal-bg" id="mLeave">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-paper-plane text-acc"></i> Apply Leave / OD</div>
+      <button class="modal-close" onclick="closeModal('mLeave')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrp">
+        <label class="flbl">Leave Type *</label>
+        <select class="fsel" id="mLType" onchange="onLeaveTypeChange()">
+          <option value="">— Select —</option>
+          <option value="Leave">Leave</option>
+          <option value="OD">On Duty (OD)</option>
+          <option value="Medical">Medical Leave</option>
+          <option value="Emergency">Emergency Leave</option>
+        </select>
+      </div>
+      <div class="fcols2">
+        <div class="fgrp"><label class="flbl">From Date *</label><input type="date" class="finp" id="mLFrom" onchange="calcDays()"></div>
+        <div class="fgrp"><label class="flbl">To Date *</label><input type="date" class="finp" id="mLTo" onchange="calcDays()"></div>
+      </div>
+      <div id="daysDisplay" style="margin-bottom:12px;display:none">
+        <span class="chip"><i class="fas fa-calendar-day"></i> <span id="daysText">0 days</span></span>
+      </div>
+      <div class="fgrp">
+        <label class="flbl">Reason *</label>
+        <textarea class="ftxt" id="mLReason" placeholder="Provide detailed reason…"></textarea>
+      </div>
+      <div id="odExtra" style="display:none">
+        <div class="fgrp"><label class="flbl">Event / Purpose</label><input type="text" class="finp" id="mLODEvent" placeholder="e.g. Symposium, Hackathon…"></div>
+        <div class="fgrp"><label class="flbl">Venue / Institution</label><input type="text" class="finp" id="mLODVenue" placeholder="Institution / venue name"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('mLeave')">Cancel</button>
+      <button class="btn btn-pri" id="submitLBtn" onclick="submitLeave()"><i class="fas fa-paper-plane"></i> Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-bg" id="mReview">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-clipboard-check text-acc"></i> Request Details</div>
+      <button class="modal-close" onclick="closeModal('mReview')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mReviewBody"></div>
+    <div class="modal-foot" id="mReviewFoot"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appWrap">
+  <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sb-logo">IT</div>
+      <div>
+        <div class="sb-brand-name">VCET Leave Portal</div>
+        <div class="sb-brand-sub">Student Dashboard</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-foot">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar">S</div>
+        <div style="min-width:0">
+          <div class="sb-uname" id="sbName">—</div>
+          <div class="sb-urole" id="sbRole">Student</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div id="mainArea">
+    <div class="topbar">
+      <button class="tb-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <div class="tb-title" id="tbTitle">Dashboard</div>
+      <div class="tb-actions">
+        <button class="tb-btn" onclick="refreshCurrentPage()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+        <div class="theme-pill" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="themeIco"></i>
+          <span id="themeTxt">Dark</span>
+        </div>
+        <button class="tb-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
+      </div>
+    </div>
+    <div class="page-body" id="pageBody"></div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+
+/* ══ SESSION ══
+   The login page (index.html) resolves the real RegNo from STUDENT_MASTER
+   before storing the session. So user.RegNo is always the correct
+   registration number here — never the LoginID.
+*/
+let user = JSON.parse(sessionStorage.getItem('vcet_user') || 'null');
+if (!user || user.role !== 'Student') { window.location.href = 'index.html'; }
+
+/*
+ * RegNo must have been set by the login page via student.getProfileByName.
+ * It comes from STUDENT_MASTER — not from LOGIN_MASTER.LoginID.
+ */
+const regNo = (user.RegNo || '').toString().trim();
+
+const userName    = (user.StudentName || user.name || 'Student').toString().trim();
+const userYear    = (user.Year    || user.year    || '').toString().trim();
+const userSection = (user.Section || user.section || '').toString().trim();
+
+/* Safety check — if RegNo is missing the login flow has a bug */
+if (!regNo) {
+  document.body.innerHTML = `
+    <div style="font-family:sans-serif;max-width:560px;margin:60px auto;padding:24px;border:1px solid #fca;background:#fff8f5;border-radius:12px">
+      <h2 style="color:#c0392b;margin:0 0 12px">Session Error — Registration Number Missing</h2>
+      <p style="margin:0 0 10px">
+        The session object does not contain a <code>RegNo</code>.<br>
+        This means the login page did not successfully call
+        <code>student.getProfileByName</code> to resolve the real
+        registration number from STUDENT_MASTER.
+      </p>
+      <p style="margin:0 0 10px;font-size:13px;color:#555">
+        <strong>Checklist:</strong><br>
+        1. LOGIN_MASTER → <code>Name</code> column must exactly match
+           STUDENT_MASTER → <code>StudentName</code> column.<br>
+        2. STUDENT_MASTER must have a non-empty <code>RegNo</code> for that student.<br>
+        3. The GAS URL must be redeployed after updating Code.gs.
+      </p>
+      <p style="margin:0 0 16px;font-size:12px;color:#888">
+        Session keys: <code>${Object.keys(user).join(', ')}</code>
+      </p>
+      <a href="index.html" style="display:inline-block;padding:8px 18px;background:#c0392b;color:#fff;border-radius:8px;text-decoration:none">Back to Login</a>
+    </div>`;
+  throw new Error('RegNo missing from session — login flow incomplete');
+}
+
+let currentPage = '';
+let profileData = null;
+
+const NAV_ITEMS = [
+  { id: 'dash',     icon: 'fa-home',              label: 'Dashboard'    },
+  { id: 'myReqs',   icon: 'fa-list-check',        label: 'My Requests'  },
+  { id: 'analysis', icon: 'fa-chart-line',        label: 'My Analysis'  },
+  { id: 'history',  icon: 'fa-clock-rotate-left', label: 'Leave History'},
+  { id: 'profile',  icon: 'fa-user-circle',       label: 'My Profile'   }
+];
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+function initApp() {
+  buildSidebar(NAV_ITEMS, 'Student', { name: userName, role: 'Student' }, 0);
+  nav('dash');
+}
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function nav(pageId) {
+  currentPage = pageId;
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  const el = $('nl_' + pageId);
+  if (el) el.classList.add('active');
+  const titles = {
+    dash: 'Dashboard', myReqs: 'My Requests', analysis: 'My Analysis',
+    history: 'Leave History', profile: 'My Profile'
+  };
+  $('tbTitle').textContent = titles[pageId] || pageId;
+  closeSidebar();
+  loadPage(pageId);
+}
+
+function refreshCurrentPage() { if (currentPage) loadPage(currentPage); }
+
+function loadPage(id) {
+  destroyCharts();
+  const pb = $('pageBody');
+  pb.innerHTML = `<div class="sk-block mb-14">${skeleton()}</div><div class="sk-block">${skeleton(5)}</div>`;
+  const pages = { dash: renderDash, myReqs: renderMyReqs, analysis: renderAnalysis, history: renderHistory, profile: renderProfile };
+  const fn = pages[id];
+  if (fn) fn();
+  else pb.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>Page not found</p></div>';
+}
+
+function doLogout() {
+  // Custom modal markup
+  const existing = document.getElementById('mLogout');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'mLogout';
+  modal.innerHTML = `
+    <div style="
+      position:fixed;inset:0;background:rgba(255,255,255,.85);backdrop-filter:blur(4px);z-index:9999;
+      display:flex;align-items:center;justify-content:center;
+      animation:fadeIn .15s ease
+    ">
+      <div style="
+        background:var(--card);border:1px solid var(--border);border-radius:16px;
+        padding:28px 28px 22px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);
+        animation:slideUp .18s ease
+      ">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:40px;height:40px;border-radius:12px;background:rgba(220,38,38,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="fas fa-sign-out-alt" style="color:var(--dan);font-size:16px"></i>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--txt)">Sign Out</div>
+            <div style="font-size:12px;color:var(--txt2);margin-top:1px">Student Portal</div>
+          </div>
+        </div>
+        <p style="font-size:13.5px;color:var(--txt2);margin:0 0 20px;line-height:1.5">
+          Are you sure you want to sign out from the portal?
+        </p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button onclick="document.getElementById('mLogout').remove()"
+            style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);
+                   background:var(--bg2);color:var(--txt);font-size:13px;
+                   cursor:pointer;font-family:inherit;font-weight:500">
+            Cancel
+          </button>
+          <button onclick="sessionStorage.removeItem('vcet_user');window.location.href='index.html';"
+            style="padding:8px 18px;border-radius:8px;border:none;
+                   background:var(--dan);color:#fff;font-size:13px;
+                   cursor:pointer;font-family:inherit;font-weight:600">
+            <i class="fas fa-sign-out-alt"></i> Sign Out
+          </button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  // Close on backdrop click
+  modal.firstElementChild.addEventListener('click', function(e) {
+    if (e.target === this) modal.remove();
+  });
+}
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+function field(obj, ...keys) {
+  for (const k of keys) {
+    if (obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+  }
+  return '—';
+}
+
+/* ══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+async function renderDash() {
+  const pb = $('pageBody');
+  try {
+    const [profRes, reqRes] = await Promise.allSettled([
+      api('student.getProfile',    { regNo }),
+      api('student.getMyRequests', { regNo })
+    ]);
+
+    const reqs   = reqRes.status === 'fulfilled' ? (reqRes.value.data || []) : [];
+    const reqErr = reqRes.status === 'rejected'  ? reqRes.reason.message     : null;
+
+    const approved = reqs.filter(r => r.FinalStatus === 'Approved').length;
+    const pending  = reqs.filter(r => ['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length;
+    const days     = reqs.filter(r => r.FinalStatus === 'Approved').reduce((s,r) => s + (+r.TotalDays||0), 0);
+
+    const firstName = userName.split(' ')[0];
+
+    pb.innerHTML = `
+      <div class="welcome">
+        <div class="welcome-z">
+          <div class="welcome-title">Hello, ${firstName}! 👋</div>
+          <div class="welcome-sub">Track your leave and OD requests in one place.</div>
+          <div class="welcome-date"><i class="fas fa-calendar-day"></i>
+            ${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+          </div>
+          <div class="welcome-actions">
+            <button class="btn btn-acc" onclick="openApplyModal()"><i class="fas fa-plus-circle"></i> Apply Leave / OD</button>
+            <button class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="nav('myReqs')"><i class="fas fa-list"></i> View All</button>
+            <button class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="nav('analysis')"><i class="fas fa-chart-line"></i> My Analysis</button>
+          </div>
+        </div>
+      </div>
+
+      ${reqErr ? `<div style="margin-bottom:14px;padding:10px 16px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.25);border-radius:var(--r);font-size:13px;color:var(--dan)">
+        <i class="fas fa-exclamation-triangle"></i> Could not load requests: ${reqErr}
+      </div>` : ''}
+
+      <div class="stats-grid col4 mb-20">
+        ${sCard('Total Requests',   reqs.length, 'fa-file-alt',      'sc-blue')}
+        ${sCard('Approved',         approved,    'fa-check-circle',  'sc-green')}
+        ${sCard('Pending / Review', pending,     'fa-clock',         'sc-orange')}
+        ${sCard('Days Taken',       days,        'fa-calendar-check','sc-cyan')}
+      </div>
+
+      <div class="grid-2-1">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Request Summary</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="stuBarChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-history"></i> Recent Requests</div></div>
+          <div class="card-body" style="padding-top:10px">
+            ${reqs.length === 0
+              ? `<div class="empty-state"><i class="fas fa-inbox"></i><p>No requests yet</p></div>`
+              : reqs.slice(-5).reverse().map(r => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+                  <div>
+                    <div style="font-size:13px;font-weight:600">${typeBadge(r.LeaveType)} ${r.FromDate||''}</div>
+                    <div style="font-size:11px;color:var(--txt2);margin-top:2px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.Reason||''}</div>
+                  </div>
+                  ${statusBadge(r.FinalStatus)}
+                </div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    const byType = ['Leave','OD','Medical','Emergency'];
+    charts.stuBar = new Chart($('stuBarChart'), {
+      type: 'bar',
+      data: { labels: byType, datasets: [
+        { label:'Approved',  data: byType.map(t => reqs.filter(r=>r.LeaveType===t&&r.FinalStatus==='Approved').length), backgroundColor:'rgba(5,150,105,.7)',  borderRadius:6 },
+        { label:'In Review', data: byType.map(t => reqs.filter(r=>r.LeaveType===t&&['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length), backgroundColor:'rgba(217,119,6,.65)',borderRadius:6 },
+        { label:'Rejected',  data: byType.map(t => reqs.filter(r=>r.LeaveType===t&&r.FinalStatus==='Rejected').length), backgroundColor:'rgba(220,38,38,.65)', borderRadius:6 }
+      ]},
+      options: chartDefaultOpts()
+    });
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   MY REQUESTS
+══════════════════════════════════════════ */
+async function renderMyReqs() {
+  const pb = $('pageBody');
+  try {
+    const res  = await api('student.getMyRequests', { regNo });
+    const reqs = res.data || [];
+    window._allData = reqs;
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">My Leave / OD Requests</div><div class="sec-sub">${reqs.length} total requests</div></div>
+        <button class="btn btn-acc" onclick="openApplyModal()"><i class="fas fa-plus"></i> New Request</button>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <span class="filter-lbl">Status:</span>
+          <select class="fsel" onchange="filterTbl(this.value,'stuReqTbl')">
+            <option value="">All</option><option>Pending</option><option>Forwarded</option><option>HoD Review</option><option>Approved</option><option>Rejected</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'stuReqTbl')">
+            <option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search…" oninput="searchTbl(this.value,'stuReqTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="stuReqTbl">
+            <thead>
+              <tr><th>ID</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Applied</th><th>Mentor</th><th>Chair</th><th>HoD</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              ${reqs.length === 0
+                ? `<tr><td colspan="12"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests yet — apply your first leave!</p></div></td></tr>`
+                : reqs.map(r => `
+                  <tr data-search="${r.RequestID||''} ${r.LeaveType||''} ${r.Reason||''} ${r.FinalStatus||''}">
+                    <td><span class="fw7 text-pri">${r.RequestID||'—'}</span></td>
+                    <td>${typeBadge(r.LeaveType||'Leave')}</td>
+                    <td>${fmtDate(r.FromDate)}</td>
+                    <td>${fmtDate(r.ToDate)}</td>
+                    <td><span class="chip">${r.TotalDays||0}d</span></td>
+                    <td><span style="display:block;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.Reason||''}">${r.Reason||'—'}</span></td>
+                    <td>${fmtDate(r.ApplyDate)}</td>
+                    <td>${statusBadge(r.MentorStatus||'Pending')}</td>
+                    <td>${statusBadge(r.ChairpersonStatus||'Pending')}</td>
+                    <td>${statusBadge(r.HoDStatus||'Pending')}</td>
+                    <td>${statusBadge(r.FinalStatus||'Pending')}</td>
+                    <td>
+                      <button class="btn btn-ghost btn-xs" onclick="openReview('${r.RequestID}','view',fetchFallback)">
+                        <i class="fas fa-eye"></i>
+                      </button>
+                    </td>
+                  </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   MY ANALYSIS
+══════════════════════════════════════════ */
+async function renderAnalysis() {
+  const pb = $('pageBody');
+  try {
+    const res  = await api('student.getMyRequests', { regNo });
+    const reqs = res.data || [];
+
+    const totalReqs    = reqs.length;
+    const approved     = reqs.filter(r => r.FinalStatus === 'Approved');
+    const rejected     = reqs.filter(r => r.FinalStatus === 'Rejected');
+    const pending      = reqs.filter(r => ['Pending','Forwarded','HoD Review'].includes(r.FinalStatus));
+    const approvedDays = approved.reduce((s,r) => s + (+r.TotalDays||0), 0);
+    const leaveDays    = approved.filter(r=>r.LeaveType==='Leave').reduce((s,r)=>s+(+r.TotalDays||0),0);
+    const odDays       = approved.filter(r=>r.LeaveType==='OD').reduce((s,r)=>s+(+r.TotalDays||0),0);
+    const medicalDays  = approved.filter(r=>r.LeaveType==='Medical').reduce((s,r)=>s+(+r.TotalDays||0),0);
+    const approvalRate = totalReqs > 0 ? Math.round(approved.length / totalReqs * 100) : 0;
+
+    const byMonth = {};
+    reqs.forEach(r => {
+      const m = (r.ApplyDate||'').slice(0,7) || 'Unknown';
+      (byMonth[m] = byMonth[m] || []).push(r);
+    });
+    const months      = Object.keys(byMonth).filter(m=>m!=='Unknown').sort().slice(-6);
+    const monthLabels = months.map(m => {
+      try { return new Date(m+'-01').toLocaleDateString('en-IN',{month:'short',year:'2-digit'}); }
+      catch(e){ return m; }
+    });
+
+    destroyCharts();
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">My Leave & OD Analysis</div><div class="sec-sub">Comprehensive breakdown of your requests</div></div>
+        <button class="btn btn-acc" onclick="exportMyAnalysisPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+      </div>
+      <div class="stats-grid col4 mb-14">
+        ${sCard('Total Requests', totalReqs,        'fa-file-alt',      'sc-blue')}
+        ${sCard('Approved Days',  approvedDays,     'fa-calendar-check','sc-green')}
+        ${sCard('Pending',        pending.length,   'fa-clock',         'sc-orange')}
+        ${sCard('Approval Rate',  approvalRate+'%', 'fa-percent',       'sc-cyan')}
+      </div>
+      <div class="card mb-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-calendar-alt"></i> Days Breakdown (Approved Only)</div></div>
+        <div class="card-body">
+          <div class="analysis-grid">
+            <div class="anl-card">
+              <div class="anl-card-title">Leave Days</div>
+              <div class="anl-card-val text-pri">${leaveDays}</div>
+              <div class="anl-bar"><div class="anl-bar-fill" style="width:${approvedDays>0?leaveDays/approvedDays*100:0}%;background:var(--pri)"></div></div>
+            </div>
+            <div class="anl-card">
+              <div class="anl-card-title">OD Days</div>
+              <div class="anl-card-val text-acc">${odDays}</div>
+              <div class="anl-bar"><div class="anl-bar-fill" style="width:${approvedDays>0?odDays/approvedDays*100:0}%;background:var(--acc)"></div></div>
+            </div>
+            <div class="anl-card">
+              <div class="anl-card-title">Medical Days</div>
+              <div class="anl-card-val text-suc">${medicalDays}</div>
+              <div class="anl-bar"><div class="anl-bar-fill" style="width:${approvedDays>0?medicalDays/approvedDays*100:0}%;background:var(--suc)"></div></div>
+            </div>
+            <div class="anl-card">
+              <div class="anl-card-title">Total Approved</div>
+              <div class="anl-card-val text-inf">${approvedDays}</div>
+              <div class="anl-card-sub">${approved.length} requests</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-area"></i> Monthly Trend (Last 6 Months)</div></div>
+          <div class="card-body"><div class="chart-wrap-tall"><canvas id="anlTrend"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Status Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="anlStatus"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><i class="fas fa-table"></i> Type-wise Summary</div></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Leave Type</th><th>Total</th><th>Approved</th><th>Pending</th><th>Rejected</th><th>Days</th><th>Approval %</th></tr></thead>
+            <tbody>
+              ${['Leave','OD','Medical','Emergency'].map(type => {
+                const tr   = reqs.filter(r=>r.LeaveType===type);
+                const ta   = tr.filter(r=>r.FinalStatus==='Approved');
+                const tp   = tr.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus));
+                const trej = tr.filter(r=>r.FinalStatus==='Rejected');
+                const td   = ta.reduce((s,r)=>s+(+r.TotalDays||0),0);
+                const pct  = tr.length>0?Math.round(ta.length/tr.length*100):0;
+                return `<tr>
+                  <td class="fw7">${type}</td>
+                  <td>${tr.length}</td>
+                  <td class="text-suc fw6">${ta.length}</td>
+                  <td class="text-war fw6">${tp.length}</td>
+                  <td class="text-dan fw6">${trej.length}</td>
+                  <td><span class="chip">${td}d</span></td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${pct}%;background:var(--suc)"></div></div>
+                      <span style="font-size:11px;font-weight:700">${pct}%</span>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    charts.anlTrend = new Chart($('anlTrend'), {
+      type: 'line',
+      data: { labels: monthLabels, datasets: [
+        { label:'Leave',   data:months.map(m=>(byMonth[m]||[]).filter(r=>r.LeaveType==='Leave').length),   borderColor:'rgba(15,39,68,.8)',  backgroundColor:'rgba(15,39,68,.07)',  tension:.4,fill:true,pointRadius:4 },
+        { label:'OD',      data:months.map(m=>(byMonth[m]||[]).filter(r=>r.LeaveType==='OD').length),      borderColor:'rgba(224,92,26,.8)', backgroundColor:'rgba(224,92,26,.07)', tension:.4,fill:true,pointRadius:4 },
+        { label:'Medical', data:months.map(m=>(byMonth[m]||[]).filter(r=>r.LeaveType==='Medical').length), borderColor:'rgba(5,150,105,.8)', backgroundColor:'rgba(5,150,105,.07)', tension:.4,fill:true,pointRadius:4 }
+      ]},
+      options: chartDefaultOpts()
+    });
+
+    charts.anlStatus = new Chart($('anlStatus'), {
+      type: 'doughnut',
+      data: { labels:['Approved','HoD Review','Pending/Fwd','Rejected'],
+        datasets:[{ data:[
+          approved.length,
+          reqs.filter(r=>r.FinalStatus==='HoD Review').length,
+          reqs.filter(r=>['Pending','Forwarded'].includes(r.FinalStatus)).length,
+          rejected.length
+        ], backgroundColor:['rgba(5,150,105,.8)','rgba(124,58,237,.8)','rgba(217,119,6,.8)','rgba(220,38,38,.8)'], borderWidth:0, hoverOffset:5 }]
+      },
+      options: doughnutOpts()
+    });
+
+    window._myAnalysisData = reqs;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+function exportMyAnalysisPDF() {
+  const reqs = window._myAnalysisData;
+  if (!reqs || !reqs.length) { toast('No data to export','war'); return; }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF('l','mm','a4');
+  const pw  = doc.internal.pageSize.getWidth();
+  doc.setFillColor(15,39,68); doc.rect(0,0,pw,24,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('VCET-IT | My Leave & OD Analysis', pw/2, 10, {align:'center'});
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(`Student: ${userName} (${regNo}) | Generated: ${new Date().toLocaleString('en-IN')}`, pw/2, 18, {align:'center'});
+  doc.autoTable({
+    startY: 28,
+    head: [['ID','Type','From','To','Days','Reason','Mentor','Chair','HoD','Status']],
+    body: reqs.map(r => [r.RequestID||'',r.LeaveType||'',r.FromDate||'',r.ToDate||'',r.TotalDays||0,(r.Reason||'').slice(0,40),r.MentorStatus||'',r.ChairpersonStatus||'',r.HoDStatus||'Pending',r.FinalStatus||'']),
+    styles:{fontSize:7,cellPadding:2.2},
+    headStyles:{fillColor:[15,39,68],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[240,247,255]}
+  });
+  doc.save(`VCET_MyAnalysis_${regNo}_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('PDF downloaded!','suc');
+}
+
+/* ══════════════════════════════════════════
+   LEAVE HISTORY
+══════════════════════════════════════════ */
+async function renderHistory() {
+  const pb = $('pageBody');
+  try {
+    const res       = await api('student.getMyRequests', { regNo });
+    const approved  = (res.data || []).filter(r => r.FinalStatus === 'Approved');
+    const totalDays = approved.reduce((s,r) => s + (+r.TotalDays||0), 0);
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">Leave History</div><div class="sec-sub">All approved leaves</div></div>
+        <span class="chip"><i class="fas fa-calendar-check text-suc"></i> ${totalDays} approved days</span>
+      </div>
+      <div class="grid-2-1">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-history"></i> Approved Timeline</div></div>
+          <div class="card-body">
+            ${approved.length === 0
+              ? `<div class="empty-state"><i class="fas fa-check-double text-suc"></i><p>No approved leaves yet</p></div>`
+              : `<div class="timeline">${approved.map(r=>`
+                <div class="tl-item approved">
+                  <div class="tl-date">${fmtDate(r.ApplyDate)}</div>
+                  <div class="tl-text">${r.LeaveType||''} — ${fmtDate(r.FromDate)} to ${fmtDate(r.ToDate)} <span class="chip" style="font-size:10px">${r.TotalDays||0}d</span></div>
+                  <div class="tl-sub">${r.Reason||''}</div>
+                </div>`).join('')}</div>`}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Leave Breakdown</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="histDoughnut"></canvas></div></div>
+        </div>
+      </div>`;
+
+    const labels = ['Leave','OD','Medical','Emergency'];
+    const vals   = labels.map(t => approved.filter(r=>r.LeaveType===t).reduce((s,r)=>s+(+r.TotalDays||0),0));
+    charts.hist  = new Chart($('histDoughnut'), {
+      type: 'doughnut',
+      data: { labels, datasets:[{
+        data:vals,
+        backgroundColor:['rgba(15,39,68,.8)','rgba(224,92,26,.8)','rgba(5,150,105,.8)','rgba(217,119,6,.8)'],
+        borderWidth:0, hoverOffset:5
+      }]},
+      options: doughnutOpts()
+    });
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   PROFILE
+══════════════════════════════════════════ */
+async function renderProfile() {
+  const pb = $('pageBody');
+  try {
+    /* Profile is already in session (merged during login).
+       Still re-fetch for freshness, but fall back gracefully. */
+    let profile = {};
+    try {
+      const res = await api('student.getProfile', { regNo });
+      profile = res.data || {};
+    } catch (apiErr) {
+      toast('Profile API unavailable — showing session data','war');
+    }
+
+    const merged = { ...user, ...profile };
+
+    const displayName = field(merged,'StudentName','name','Name');
+    const displayReg  = field(merged,'RegNo') || regNo;
+    const displayYear = field(merged,'Year','year');
+    const displaySec  = field(merged,'Section','section');
+    const displayMob  = field(merged,'StudentMobile','Mobile','mobile');
+    const displayMent = field(merged,'MentorID','mentorId');
+    profileData = merged;
+
+    pb.innerHTML = `
+      <div class="sec-head"><div class="sec-title">My Profile</div></div>
+      <div style="max-width:600px">
+        <div class="card" style="overflow:hidden">
+          <div style="background:linear-gradient(135deg,var(--pri),var(--pri-light));padding:24px;display:flex;align-items:center;gap:16px;color:#fff">
+            <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0">${getInitials(displayName)}</div>
+            <div>
+              <div style="font-size:18px;font-weight:700">${displayName}</div>
+              <div style="font-size:12px;opacity:.8;margin-top:2px">Student • Information Technology</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="info-grid">
+              <div class="info-item"><label>Reg. No</label><p>${displayReg}</p></div>
+              <div class="info-item"><label>Year</label><p>${displayYear}</p></div>
+              <div class="info-item"><label>Section</label><p>${displaySec}</p></div>
+              <div class="info-item"><label>Mentor ID</label><p>${displayMent}</p></div>
+              <div class="info-item"><label>Mobile</label><p>${displayMob}</p></div>
+              <div class="info-item"><label>Department</label><p>IT</p></div>
+            </div>
+            <div class="divider"></div>
+            <div style="margin-bottom:14px">
+              <div class="flbl" style="margin-bottom:10px">Change Password</div>
+              <div class="fcols2">
+                <div class="fgrp"><label class="flbl">Current Password</label><input type="password" class="finp" id="cpOld" placeholder="Current password"></div>
+                <div class="fgrp"><label class="flbl">New Password</label><input type="password" class="finp" id="cpNew" placeholder="New password"></div>
+              </div>
+            </div>
+            <button class="btn btn-pri" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+          </div>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+async function changePassword() {
+  const old = $('cpOld').value.trim(), nw = $('cpNew').value.trim();
+  if (!old || !nw)   { toast('Fill both password fields','war'); return; }
+  if (nw.length < 4) { toast('Min 4 characters','war'); return; }
+  try {
+    showG('Updating…');
+    /* changePassword uses loginId (the LOGIN_MASTER key), not RegNo */
+    await api('changePassword', { loginId: user.loginId, oldPassword: old, newPassword: nw });
+    toast('Password updated!','suc');
+    $('cpOld').value = ''; $('cpNew').value = '';
+  } catch(e) { toast(e.message,'err'); } finally { hideG(); }
+}
+
+/* ══════════════════════════════════════════
+   APPLY LEAVE
+══════════════════════════════════════════ */
+function openApplyModal() {
+  const today = todayISO();
+  $('mLFrom').min = today; $('mLTo').min = today;
+  $('mLFrom').value = ''; $('mLTo').value = '';
+  $('mLType').value = ''; $('mLReason').value = '';
+  $('odExtra').style.display    = 'none';
+  $('daysDisplay').style.display = 'none';
+  openModal('mLeave');
+}
+function onLeaveTypeChange() {
+  $('odExtra').style.display = $('mLType').value === 'OD' ? 'block' : 'none';
+}
+function calcDays() {
+  const f = $('mLFrom').value, t = $('mLTo').value;
+  if (f && t) {
+    if (t < f) { $('mLTo').value = f; return; }
+    const days = Math.max(1, Math.ceil((new Date(t) - new Date(f)) / 86400000) + 1);
+    $('daysDisplay').style.display = 'block';
+    $('daysText').textContent = days + ' day(s) selected';
+  }
+}
+
+async function submitLeave() {
+  const type   = $('mLType').value.trim();
+  const from   = $('mLFrom').value.trim();
+  const to     = $('mLTo').value.trim();
+  const reason = $('mLReason').value.trim();
+
+  if (!type)   { toast('Select a leave type','war');  return; }
+  if (!from)   { toast('Select a from date','war');   return; }
+  if (!to)     { toast('Select a to date','war');     return; }
+  if (!reason) { toast('Enter a reason','war');        return; }
+
+  const days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
+  const btn  = $('submitLBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Submitting…';
+
+  try {
+    await api('student.submitLeave', {
+      regNo,                       // ← real RegNo from STUDENT_MASTER
+      studentName : userName,
+      year        : userYear,
+      section     : userSection,
+      leaveType   : type,
+      fromDate    : from,
+      toDate      : to,
+      totalDays   : days,
+      reason
+    });
+    closeModal('mLeave');
+    toast('Leave request submitted!','suc');
+    if (currentPage === 'myReqs') renderMyReqs();
+    else if (currentPage === 'dash') loadPage('dash');
+  } catch(e) {
+    toast(e.message,'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+  }
+}
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+async function fetchFallback(reqId) {
+  const res = await api('student.getMyRequests', { regNo });
+  return (res.data || []).find(r => r.RequestID === reqId);
+}
+
+/* ══ INIT ══ */
+initApp();
+</script>
+</body>
+</html>

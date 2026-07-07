@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VCET-IT | Mentor Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+
+<div id="toastZone"></div>
+<div class="global-loader" id="gLoader" style="display:none">
+  <div class="spinner"></div>
+  <div class="loader-txt" id="gLoaderTxt">Loading…</div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-bg" id="mReview">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-clipboard-check text-acc"></i> Review Request</div>
+      <button class="modal-close" onclick="closeModal('mReview')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mReviewBody"></div>
+    <div class="modal-foot"  id="mReviewFoot"></div>
+  </div>
+</div>
+
+<!-- ABSENT MODAL -->
+<div class="modal-bg" id="mAbsent">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title"><i class="fas fa-user-slash text-dan"></i> Add Not-Informed Absent</div>
+      <button class="modal-close" onclick="closeModal('mAbsent')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="fgrp"><label class="flbl">Select Student *</label><select class="fsel" id="mAbsStu"></select></div>
+      <div class="fgrp"><label class="flbl">Date *</label><input type="date" class="finp" id="mAbsDate"></div>
+      <div class="fgrp"><label class="flbl">Reason</label><textarea class="ftxt" id="mAbsReason" placeholder="Known reason (if any)…" style="min-height:60px"></textarea></div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--txt)">
+        <input type="checkbox" id="mAbsNotify" style="width:15px;height:15px;accent-color:var(--pri)">
+        Send WhatsApp notification to parent
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('mAbsent')">Cancel</button>
+      <button class="btn btn-dan" onclick="submitAbsent()"><i class="fas fa-plus"></i> Add Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- WHATSAPP MODAL -->
+<div class="modal-bg" id="mWA">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title" style="color:#25d366"><i class="fab fa-whatsapp"></i> Send WhatsApp Alert</div>
+      <button class="modal-close" onclick="closeModal('mWA')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="mWABody"></div>
+    <div class="modal-foot" id="mWAFoot"></div>
+  </div>
+</div>
+
+<!-- LOGOUT MODAL -->
+<div id="mLogout" style="display:none;position:fixed;inset:0;z-index:9999;background:#ffffff;align-items:center;justify-content:center">
+  <div style="background:var(--card,#fff);border:1px solid var(--border,#dde6f0);border-radius:16px;padding:28px 28px 22px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="width:40px;height:40px;border-radius:12px;background:rgba(220,38,38,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-sign-out-alt" style="color:#dc2626;font-size:16px"></i>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:var(--txt,#1a3c5e)">Sign Out</div>
+        <div style="font-size:12px;color:var(--txt2,#4a6080);margin-top:1px">Mentor Portal</div>
+      </div>
+    </div>
+    <p style="font-size:13.5px;color:var(--txt2,#4a6080);margin:0 0 20px;line-height:1.5">
+      Are you sure you want to sign out from the portal?
+    </p>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="document.getElementById('mLogout').style.display='none'"
+        style="padding:8px 18px;border-radius:8px;border:1px solid var(--border,#dde6f0);background:var(--bg2,#f0f7ff);color:var(--txt,#1a3c5e);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500">
+        Cancel
+      </button>
+      <button onclick="sessionStorage.removeItem('vcet_user');window.location.href='index.html';"
+        style="padding:8px 18px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600">
+        <i class="fas fa-sign-out-alt"></i> Sign Out
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appWrap">
+  <div class="sb-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sb-logo">IT</div>
+      <div>
+        <div class="sb-brand-name">VCET Leave Portal</div>
+        <div class="sb-brand-sub">Mentor Dashboard</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-foot">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar">M</div>
+        <div style="min-width:0">
+          <div class="sb-uname" id="sbName">—</div>
+          <div class="sb-urole" id="sbRole">Mentor</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div id="mainArea">
+    <div class="topbar">
+      <button class="tb-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <div class="tb-title" id="tbTitle">Dashboard</div>
+      <div class="tb-actions">
+        <button class="tb-btn" onclick="refreshCurrentPage()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+        <div class="theme-pill" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="themeIco"></i>
+          <span id="themeTxt">Dark</span>
+        </div>
+        <button class="tb-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
+      </div>
+    </div>
+    <div class="page-body" id="pageBody"></div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+
+/* ══ SESSION ══ */
+let user = JSON.parse(sessionStorage.getItem('vcet_user') || 'null');
+if (!user || user.role !== 'Mentor') { window.location.href = 'index.html'; }
+
+let currentPage    = '';
+let mentorStudents = [];
+
+/*
+ * ══════════════════════════════════════════════════════════════
+ *  RESOLVED MENTOR-ID
+ * ══════════════════════════════════════════════════════════════
+ *
+ *  ROOT CAUSE OF ZEROS / EMPTY DATA:
+ *  ──────────────────────────────────
+ *  The backend (Code.gs) looks up students like this:
+ *    STUDENT_MASTER.MentorID === mentorId   (passed from frontend)
+ *
+ *  The frontend was always sending:
+ *    { mentorId: user.loginId }   ← LOGIN_MASTER.LoginID
+ *
+ *  But STUDENT_MASTER.MentorID might store a DIFFERENT value,
+ *  e.g. "M001", "FAC-001", a faculty name, or an email.
+ *
+ *  Fix Strategy:
+ *  ─────────────
+ *  1. Collect every plausible identifier from the session object.
+ *  2. On first load, call mentor.getStudents with EACH candidate.
+ *  3. Whichever one returns students > 0  →  that is the real mentorId.
+ *  4. Cache it as `resolvedMentorId` and use it for all API calls.
+ *  5. If none match, show a clear diagnostic so the admin can fix the sheet.
+ * ══════════════════════════════════════════════════════════════
+ */
+let resolvedMentorId = null;   // set by resolveMentorId()
+
+/**
+ * Returns a de-duplicated list of all non-empty string values
+ * from the session that could be stored in STUDENT_MASTER.MentorID.
+ */
+function mentorIdCandidates() {
+  const seen = new Set();
+  const add  = v => { if (v && String(v).trim()) seen.add(String(v).trim()); };
+
+  add(user.loginId);
+  add(user.facultyId);
+  add(user.FacultyID);
+  add(user.name);
+  add(user.Name);
+  add(user.mentorId);        // sometimes echoed back from FACULTY_MASTER
+  add(user.MentorID);
+  add(user.email);
+  add(user.Email);
+  add(user.mobile);
+  add(user.Mobile);
+
+  return [...seen];
+}
+
+/**
+ * Probe each candidate against mentor.getStudents.
+ * Returns the first one that gives a non-empty student list.
+ * Falls back to user.loginId if nothing matches (so the page
+ * still loads and shows the diagnostic banner).
+ */
+async function resolveMentorId() {
+  if (resolvedMentorId) return resolvedMentorId;
+
+  const candidates = mentorIdCandidates();
+  console.log('[MentorId] Candidates to try:', candidates);
+
+  for (const candidate of candidates) {
+    try {
+      const res = await api('mentor.getStudents', { mentorId: candidate });
+      const students = res.data || [];
+      if (students.length > 0) {
+        console.log(`[MentorId] ✓ Resolved: "${candidate}" matched ${students.length} student(s)`);
+        resolvedMentorId = candidate;
+        mentorStudents   = students;   // cache while we have it
+        return resolvedMentorId;
+      } else {
+        console.log(`[MentorId] ✗ "${candidate}" → 0 students`);
+      }
+    } catch (e) {
+      console.warn(`[MentorId] Error trying "${candidate}":`, e.message);
+    }
+  }
+
+  /* Nothing matched — use loginId as fallback and show diagnostic */
+  console.warn('[MentorId] No candidate matched any students. Using loginId as fallback.');
+  resolvedMentorId = user.loginId;
+  return resolvedMentorId;
+}
+
+/* ── Convenience: always use the resolved id ── */
+async function getMentorId() {
+  return resolvedMentorId || await resolveMentorId();
+}
+
+/* ── Smart first-name (skip "Dr.", "Prof.", etc.) ── */
+const TITLE_RE = /^(dr\.?|prof\.?|mr\.?|mrs\.?|ms\.?|er\.?|sri\.?|shri\.?)\s*/i;
+function getFirstName(fullName) {
+  if (!fullName) return 'User';
+  const stripped = fullName.trim().replace(TITLE_RE, '').trim();
+  return stripped.split(/\s+/)[0] || fullName.split(/\s+/)[0];
+}
+
+/* ── Diagnostic banner shown when no students found for ANY candidate ── */
+function diagnosticBanner(candidates) {
+  return `
+    <div style="margin-bottom:16px;padding:14px 16px;background:rgba(217,119,6,.08);
+      border:1px solid rgba(217,119,6,.35);border-radius:var(--r,10px);font-size:13px">
+      <div style="font-weight:700;color:var(--war,#b45309);margin-bottom:6px">
+        <i class="fas fa-exclamation-triangle"></i> MentorID Mismatch — No students found
+      </div>
+      <div style="color:var(--txt2,#4a6080);line-height:1.6">
+        The system tried all these values as <code>MentorID</code> but none matched any
+        student in <strong>STUDENT_MASTER</strong>:<br>
+        <code style="word-break:break-all">${candidates.join(' | ')}</code>
+      </div>
+      <div style="margin-top:8px;color:var(--txt2,#4a6080);line-height:1.6">
+        <strong>Fix:</strong> Open the Google Sheet → <em>STUDENT_MASTER</em> →
+        check the <strong>MentorID</strong> column. The value there must exactly match
+        one of the values above (case-sensitive). Update either the sheet or
+        <em>LOGIN_MASTER → LoginID</em> so they agree.
+      </div>
+    </div>`;
+}
+
+const NAV_ITEMS = [
+  { id: 'dash',     icon: 'fa-home',             label: 'Dashboard' },
+  { id: 'pending',  icon: 'fa-inbox',             label: 'Pending Requests' },
+  { id: 'allReqs',  icon: 'fa-list-alt',          label: 'All Requests' },
+  { id: 'students', icon: 'fa-users',             label: 'My Students' },
+  { id: 'analysis', icon: 'fa-chart-bar',         label: 'Student Analysis' },
+  { id: 'absent',   icon: 'fa-user-slash',        label: 'Absent Entry' },
+  { id: 'waLogs',   icon: 'fa-comments',          label: 'WhatsApp Logs' },
+  { id: 'profile',  icon: 'fa-user-circle',       label: 'My Profile' }
+];
+
+async function initApp() {
+  buildSidebar(NAV_ITEMS, 'Mentor', user, 0);
+  /* Resolve the correct mentorId ONCE at startup before any page loads */
+  await resolveMentorId();
+  nav('dash');
+}
+
+function nav(pageId) {
+  currentPage = pageId;
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  const el = $('nl_' + pageId);
+  if (el) el.classList.add('active');
+  const titles = {
+    dash: 'Dashboard', pending: 'Pending Requests', allReqs: 'All Requests',
+    students: 'My Students', analysis: 'Student Analysis',
+    absent: 'Absent Management', waLogs: 'WhatsApp Logs', profile: 'My Profile'
+  };
+  $('tbTitle').textContent = titles[pageId] || pageId;
+  closeSidebar();
+  loadPage(pageId);
+}
+
+function refreshCurrentPage() { if (currentPage) loadPage(currentPage); }
+
+function loadPage(id) {
+  destroyCharts();
+  const pb = $('pageBody');
+  pb.innerHTML = `<div class="sk-block mb-14">${skeleton()}</div><div class="sk-block">${skeleton(5)}</div>`;
+  const pages = {
+    dash: renderDash, pending: renderPending, allReqs: renderAllReqs,
+    students: renderStudents, analysis: renderAnalysis,
+    absent: renderAbsent, waLogs: renderWALogs, profile: renderProfile
+  };
+  const fn = pages[id];
+  if (fn) fn();
+  else pb.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>Page not found</p></div>';
+}
+
+function doLogout() {
+  document.getElementById('mLogout').style.display = 'flex';
+}
+
+/* ══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+async function renderDash() {
+  const pb = $('pageBody');
+  try {
+    const mentorId = await getMentorId();
+
+    /*
+     * Fire both in parallel.
+     * getDashboard  → scalar counts (correct because computed server-side from full sheet)
+     * getAllRequests → full list for charts + recent panel
+     */
+    const [dashRes, allRes] = await Promise.allSettled([
+      api('mentor.getDashboard',  { mentorId }),
+      api('mentor.getAllRequests', { mentorId })
+    ]);
+
+    /* ── Scalar counts ── */
+    let totalStudents = 0, pendingCount = 0, approvedCount = 0, rejectedCount = 0;
+    if (dashRes.status === 'fulfilled') {
+      const d   = dashRes.value.data;
+      totalStudents = d.totalStudents  || 0;
+      pendingCount  = d.pendingCount   || 0;
+      approvedCount = d.approvedCount  || 0;
+      rejectedCount = d.rejectedCount  || 0;
+    }
+
+    /* ── Full request list ── */
+    let allReqs = [];
+    if (allRes.status === 'fulfilled') {
+      allReqs = allRes.value.data || [];
+    }
+
+    /*
+     * If dashboard returned zeros but we have allReqs, recompute from allReqs.
+     * This handles the edge case where getDashboard itself has a bug.
+     */
+    if (allReqs.length > 0 && pendingCount === 0 && approvedCount === 0 && rejectedCount === 0) {
+      pendingCount  = allReqs.filter(r => r.MentorStatus === 'Pending').length;
+      approvedCount = allReqs.filter(r => r.MentorStatus === 'Approved').length;
+      rejectedCount = allReqs.filter(r => r.MentorStatus === 'Rejected').length;
+      totalStudents = totalStudents || [...new Set(allReqs.map(r => r.RegNo))].length;
+    }
+
+    buildSidebar(NAV_ITEMS, 'Mentor', user, pendingCount);
+
+    /* Recent 5 pending for quick-review panel */
+    const recentPending = allReqs
+      .filter(r => r.MentorStatus === 'Pending')
+      .slice(-5)
+      .reverse();
+
+    /* Show diagnostic banner if no students matched */
+    const noStudents = totalStudents === 0 && allReqs.length === 0;
+    const diagHtml   = noStudents ? diagnosticBanner(mentorIdCandidates()) : '';
+
+    const firstName = getFirstName(user.name);
+
+    pb.innerHTML = `
+      <div class="welcome">
+        <div class="welcome-z">
+          <div class="welcome-title">Welcome, ${firstName}! 🎓</div>
+          <div class="welcome-sub">${pendingCount} pending request(s) need your review.</div>
+          <div class="welcome-date"><i class="fas fa-calendar-day"></i>
+            ${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+          </div>
+          <div class="welcome-actions">
+            <button class="btn btn-pri" onclick="nav('pending')"><i class="fas fa-inbox"></i> Review Pending</button>
+            <button class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="openAbsentModal()"><i class="fas fa-user-slash"></i> Add Absent</button>
+            <button class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="nav('analysis')"><i class="fas fa-chart-bar"></i> Analysis</button>
+          </div>
+        </div>
+      </div>
+
+      ${diagHtml}
+
+      <div class="stats-grid col4 mb-20">
+        ${sCard('My Students',    totalStudents, 'fa-users',        'sc-blue')}
+        ${sCard('Pending Review', pendingCount,  'fa-inbox',        'sc-orange')}
+        ${sCard('Approved',       approvedCount, 'fa-check-circle', 'sc-green')}
+        ${sCard('Rejected',       rejectedCount, 'fa-times-circle', 'sc-red')}
+      </div>
+
+      <div class="grid-2-1 mb-14">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title"><i class="fas fa-chart-bar"></i> Leave Type Summary (My Students)</div>
+            <div style="font-size:11px;color:var(--txt3,#8aa0b8);margin-top:2px">
+              Using MentorID: <code style="font-size:11px;background:var(--surface2,#f0f7ff);padding:1px 5px;border-radius:4px">${mentorId}</code>
+            </div>
+          </div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="menBar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-clock"></i> Recent Pending</div></div>
+          <div class="card-body" style="padding-top:10px">
+            ${recentPending.length === 0
+              ? `<div class="empty-state" style="padding:20px"><i class="fas fa-check-double text-suc"></i><p>All clear!</p></div>`
+              : recentPending.map(r => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
+                  <div>
+                    <div style="font-weight:600;font-size:13px">${r.StudentName} <span class="chip" style="font-size:10px">${r.RegNo}</span></div>
+                    <div style="font-size:11px;color:var(--txt2)">${r.LeaveType} | ${fmtDate(r.FromDate)} → ${fmtDate(r.ToDate)}</div>
+                  </div>
+                  <div style="display:flex;gap:6px">
+                    <button class="btn btn-suc btn-sm" onclick="quickAct('${r.RequestID}','Approved','mentor')"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-dan btn-sm" onclick="quickAct('${r.RequestID}','Rejected','mentor')"><i class="fas fa-times"></i></button>
+                    <button class="btn btn-ghost btn-sm" onclick="openReview('${r.RequestID}','mentor',fetchFallback)"><i class="fas fa-eye"></i></button>
+                  </div>
+                </div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    /* Chart uses full allReqs — never the truncated recentRequests */
+    const byType = ['Leave','OD','Medical','Emergency'];
+    charts.menBar = new Chart($('menBar'), {
+      type: 'bar',
+      data: {
+        labels: byType,
+        datasets: [
+          { label:'Approved', data: byType.map(t => allReqs.filter(r => r.LeaveType===t && r.MentorStatus==='Approved').length),  backgroundColor:'rgba(5,150,105,.7)',  borderRadius:6 },
+          { label:'Pending',  data: byType.map(t => allReqs.filter(r => r.LeaveType===t && r.MentorStatus==='Pending').length),   backgroundColor:'rgba(217,119,6,.65)', borderRadius:6 },
+          { label:'Rejected', data: byType.map(t => allReqs.filter(r => r.LeaveType===t && r.MentorStatus==='Rejected').length),  backgroundColor:'rgba(220,38,38,.65)', borderRadius:6 }
+        ]
+      },
+      options: chartDefaultOpts()
+    });
+
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   PENDING
+══════════════════════════════════════════ */
+async function renderPending() {
+  const pb = $('pageBody');
+  try {
+    const mentorId = await getMentorId();
+    const res  = await api('mentor.getPending', { mentorId });
+    const reqs = res.data || [];
+    window._pendingData = reqs;
+    buildSidebar(NAV_ITEMS, 'Mentor', user, reqs.length);
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div>
+          <div class="sec-title">Pending Requests</div>
+          <div class="sec-sub">${reqs.length} awaiting your review
+            <span style="font-size:11px;color:var(--txt3,#8aa0b8);margin-left:8px">
+              MentorID: <code style="background:var(--surface2,#f0f7ff);padding:1px 5px;border-radius:4px">${mentorId}</code>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'penTbl')">
+            <option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search student…" oninput="searchTbl(this.value,'penTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="penTbl">
+            <thead><tr><th>ID</th><th>Student</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Applied</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${reqs.length === 0
+              ? `<tr><td colspan="9">
+                  <div class="empty-state">
+                    <i class="fas fa-check-double text-suc"></i>
+                    <p>No pending requests found for MentorID: <strong>${mentorId}</strong></p>
+                    <p style="font-size:12px;color:var(--txt3)">If you expect pending requests, check that STUDENT_MASTER.MentorID matches the value above.</p>
+                  </div>
+                </td></tr>`
+              : reqs.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.LeaveType}">
+                  <td class="fw7 text-pri">${r.RequestID}</td>
+                  <td><div class="fw6">${r.StudentName}</div><div style="font-size:11px;color:var(--txt2)">${r.RegNo}</div></td>
+                  <td>${typeBadge(r.LeaveType)}</td>
+                  <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                  <td><span class="chip">${r.TotalDays}d</span></td>
+                  <td><span class="ellipsis" title="${r.Reason}">${r.Reason}</span></td>
+                  <td>${fmtDate(r.ApplyDate)}</td>
+                  <td><div style="display:flex;gap:5px">
+                    <button class="btn btn-suc btn-xs" onclick="quickAct('${r.RequestID}','Approved','mentor')"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-dan btn-xs" onclick="quickAct('${r.RequestID}','Rejected','mentor')"><i class="fas fa-times"></i></button>
+                    <button class="btn btn-ghost btn-xs" onclick="openReview('${r.RequestID}','mentor',fetchFallback)"><i class="fas fa-eye"></i></button>
+                  </div></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   ALL REQUESTS
+══════════════════════════════════════════ */
+async function renderAllReqs() {
+  const pb = $('pageBody');
+  try {
+    const mentorId = await getMentorId();
+    const res  = await api('mentor.getAllRequests', { mentorId });
+    const reqs = res.data || [];
+    window._allData = reqs;
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">All Requests</div><div class="sec-sub">${reqs.length} records for my students</div></div>
+        <button class="btn btn-acc" onclick="generatePDF(window._allData,'all','${user.name}','${user.role}')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select class="fsel" onchange="filterTbl(this.value,'allTbl')">
+            <option value="">All Types</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'allTbl')">
+            <option value="">All Status</option><option>Pending</option><option>Forwarded</option><option>HoD Review</option><option>Approved</option><option>Rejected</option>
+          </select>
+          <input type="text" class="finp" placeholder="Search…" oninput="searchTbl(this.value,'allTbl')">
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="allTbl">
+            <thead><tr><th>ID</th><th>Student</th><th>Yr/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Mentor</th><th>Chairperson</th><th>HoD</th><th>Final</th><th>Action</th></tr></thead>
+            <tbody>
+              ${reqs.length === 0
+              ? `<tr><td colspan="13"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
+              : reqs.map(r => `<tr data-search="${r.RequestID} ${r.StudentName} ${r.RegNo} ${r.FinalStatus}">
+                  <td class="fw7 text-pri">${r.RequestID}</td>
+                  <td><div class="fw6">${r.StudentName}</div><div style="font-size:11px;color:var(--txt2)">${r.RegNo}</div></td>
+                  <td><span class="chip">${r.Year||'?'}-${r.Section||'?'}</span></td>
+                  <td>${typeBadge(r.LeaveType)}</td>
+                  <td>${fmtDate(r.FromDate)}</td><td>${fmtDate(r.ToDate)}</td>
+                  <td><span class="chip">${r.TotalDays}d</span></td>
+                  <td><span class="ellipsis" title="${r.Reason}">${r.Reason}</span></td>
+                  <td>${statusBadge(r.MentorStatus)}</td>
+                  <td>${statusBadge(r.ChairpersonStatus)}</td>
+                  <td>${statusBadge(r.HoDStatus||'Pending')}</td>
+                  <td>${statusBadge(r.FinalStatus)}</td>
+                  <td><button class="btn btn-ghost btn-xs" onclick="openReview('${r.RequestID}','view',fetchFallback)"><i class="fas fa-eye"></i></button></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   MY STUDENTS
+══════════════════════════════════════════ */
+async function renderStudents() {
+  const pb = $('pageBody');
+  try {
+    const mentorId = await getMentorId();
+    if (!mentorStudents.length) {
+      const res  = await api('mentor.getStudents', { mentorId });
+      mentorStudents = res.data || [];
+    }
+
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">My Students</div><div class="sec-sub">${mentorStudents.length} allotted students</div></div>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <input type="text" class="finp" style="max-width:280px;flex:1" placeholder="Search student, Reg. No…" oninput="searchTbl(this.value,'stuTbl')">
+          <select class="fsel" onchange="filterTbl(this.value,'stuTbl')">
+            <option value="">All Sections</option><option value="A">Section A</option><option value="B">Section B</option>
+          </select>
+          <select class="fsel" onchange="filterTbl(this.value,'stuTbl')">
+            <option value="">All Years</option><option>I</option><option>II</option><option>III</option><option>IV</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="stuTbl">
+            <thead><tr><th>Reg. No</th><th>Name</th><th>Year/Sec</th><th>Father</th><th>Father Mobile</th><th>Mother</th><th>Mother Mobile</th><th>Student Mobile</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${mentorStudents.length === 0
+              ? `<tr><td colspan="9"><div class="empty-state"><i class="fas fa-users"></i><p>No students found for MentorID: <strong>${mentorId}</strong></p></div></td></tr>`
+              : mentorStudents.map(s => `<tr data-search="${s.RegNo} ${s.StudentName} ${s.Section} ${s.Year}">
+                <td class="fw7 text-pri">${s.RegNo}</td>
+                <td class="fw6">${s.StudentName}</td>
+                <td><span class="chip">${s.Year}-${s.Section}</span></td>
+                <td>${s.FatherName||'—'}</td>
+                <td><a href="tel:${s.FatherMobile}" style="color:var(--pri);font-weight:600"><i class="fas fa-phone fa-xs"></i> ${s.FatherMobile||'—'}</a></td>
+                <td>${s.MotherName||'—'}</td>
+                <td><a href="tel:${s.MotherMobile}" style="color:var(--pri);font-weight:600"><i class="fas fa-phone fa-xs"></i> ${s.MotherMobile||'—'}</a></td>
+                <td>${s.StudentMobile||'—'}</td>
+                <td><div style="display:flex;gap:5px">
+                  <button class="btn btn-wa btn-xs" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i></button>
+                  <a href="tel:${s.FatherMobile}" class="btn btn-pri btn-xs"><i class="fas fa-phone"></i></a>
+                </div></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   STUDENT ANALYSIS
+══════════════════════════════════════════ */
+async function renderAnalysis() {
+  const pb = $('pageBody');
+  pb.innerHTML = `
+    <div class="sec-head">
+      <div><div class="sec-title">Student-wise Analysis</div><div class="sec-sub">Leave & OD breakdown for your allotted students</div></div>
+      <button class="btn btn-acc" onclick="exportAnalysisPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+    </div>
+    <div class="card mb-14">
+      <div class="card-head"><div class="card-title"><i class="fas fa-filter"></i> Filters</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;align-items:flex-end">
+          <div class="fgrp" style="margin:0"><label class="flbl">Search</label><input type="text" class="finp" id="asSearch" placeholder="Name / Reg. No"></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Year</label><select class="fsel" id="asYear"><option value="">All</option><option>I</option><option>II</option><option>III</option><option>IV</option></select></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Section</label><select class="fsel" id="asSec"><option value="">All</option><option>A</option><option>B</option></select></div>
+          <div class="fgrp" style="margin:0"><label class="flbl">Type</label><select class="fsel" id="asType"><option value="">All</option><option>Leave</option><option>OD</option><option>Medical</option><option>Emergency</option></select></div>
+          <button class="btn btn-pri" onclick="loadAnalysis()"><i class="fas fa-search"></i> Search</button>
+        </div>
+      </div>
+    </div>
+    <div id="analysisResult"><div class="empty-state"><i class="fas fa-chart-bar"></i><p>Apply filters and click Search to view analysis</p></div></div>`;
+}
+
+async function loadAnalysis() {
+  const container = $('analysisResult');
+  container.innerHTML = `<div class="sk-block">${skeleton(4)}</div>`;
+  try {
+    const mentorId = await getMentorId();
+    const res  = await api('mentor.getAllRequests', { mentorId });
+    let data   = res.data || [];
+
+    const search = $('asSearch').value.trim().toLowerCase();
+    const year   = $('asYear').value;
+    const sec    = $('asSec').value;
+    const type   = $('asType').value;
+
+    if (search) data = data.filter(r => (r.StudentName||'').toLowerCase().includes(search) || (r.RegNo||'').toLowerCase().includes(search));
+    if (year)   data = data.filter(r => r.Year === year);
+    if (sec)    data = data.filter(r => r.Section === sec);
+    if (type)   data = data.filter(r => r.LeaveType === type);
+
+    const byStudent = {};
+    data.forEach(r => {
+      if (!byStudent[r.RegNo]) byStudent[r.RegNo] = { RegNo:r.RegNo, StudentName:r.StudentName, Year:r.Year, Section:r.Section, reqs:[] };
+      byStudent[r.RegNo].reqs.push(r);
+    });
+    const students = Object.values(byStudent);
+    window._analysisData = students;
+
+    const totalReqs     = data.length;
+    const totalApproved = data.filter(r=>r.FinalStatus==='Approved').length;
+    const totalRejected = data.filter(r=>r.FinalStatus==='Rejected').length;
+    const totalDays     = data.filter(r=>r.FinalStatus==='Approved').reduce((s,r)=>s+(+r.TotalDays||0),0);
+
+    destroyCharts();
+    container.innerHTML = `
+      <div class="stats-grid col4 mb-14">
+        ${sCard('Total Requests', totalReqs, 'fa-file-alt', 'sc-blue')}
+        ${sCard('Approved',       totalApproved, 'fa-check-circle', 'sc-green')}
+        ${sCard('Rejected',       totalRejected, 'fa-times-circle', 'sc-red')}
+        ${sCard('Approved Days',  totalDays, 'fa-calendar-check', 'sc-cyan')}
+      </div>
+      <div class="grid-2 mb-14">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i> Type Distribution</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="anlTypeBar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i> Status Split</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="anlStatusPie"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card mb-14">
+        <div class="card-head"><div class="card-title"><i class="fas fa-users"></i> Student-wise Breakdown (${students.length} students)</div></div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="anlTbl">
+            <thead><tr><th>Reg. No</th><th>Name</th><th>Year/Sec</th><th>Total Req</th><th>Leave Days</th><th>OD Days</th><th>Medical Days</th><th>Approved</th><th>Rejected</th><th>Pending</th><th>Approval %</th></tr></thead>
+            <tbody>
+              ${students.length === 0
+              ? `<tr><td colspan="11"><div class="empty-state"><i class="fas fa-search"></i><p>No data found</p></div></td></tr>`
+              : students.map(s => {
+                  const approved  = s.reqs.filter(r=>r.FinalStatus==='Approved').length;
+                  const rejected  = s.reqs.filter(r=>r.FinalStatus==='Rejected').length;
+                  const pending   = s.reqs.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length;
+                  const leaveDays = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='Leave').reduce((a,r)=>a+(+r.TotalDays||0),0);
+                  const odDays    = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='OD').reduce((a,r)=>a+(+r.TotalDays||0),0);
+                  const medDays   = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='Medical').reduce((a,r)=>a+(+r.TotalDays||0),0);
+                  const pct = s.reqs.length > 0 ? Math.round(approved/s.reqs.length*100) : 0;
+                  return `<tr>
+                    <td class="fw7 text-pri">${s.RegNo}</td>
+                    <td class="fw6">${s.StudentName}</td>
+                    <td><span class="chip">${s.Year||'—'}-${s.Section||'—'}</span></td>
+                    <td>${s.reqs.length}</td>
+                    <td>${leaveDays}</td><td>${odDays}</td><td>${medDays}</td>
+                    <td class="text-suc fw6">${approved}</td>
+                    <td class="text-dan fw6">${rejected}</td>
+                    <td class="text-war fw6">${pending}</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${pct}%;background:var(--suc)"></div></div>
+                        <span style="font-size:11px;font-weight:700">${pct}%</span>
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ${students.filter(s=>s.reqs.length>=5).length>0?`
+      <div class="card">
+        <div class="card-head"><div class="card-title"><i class="fas fa-exclamation-triangle text-war"></i> High Leave Students (≥5 requests)</div></div>
+        <div class="card-body">
+          ${students.filter(s=>s.reqs.length>=5).map(s=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
+              <div>
+                <span class="fw6">${s.StudentName}</span>
+                <span class="chip" style="font-size:10px;margin-left:6px">${s.RegNo}</span>
+                <span class="chip" style="font-size:10px">${s.Year}-${s.Section}</span>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span style="font-size:12px;color:var(--dan);font-weight:700">${s.reqs.length} requests</span>
+                <button class="btn btn-wa btn-xs" onclick="openWA('${s.RegNo}')"><i class="fab fa-whatsapp"></i> Alert Parent</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`:''}`;
+
+    const types = ['Leave','OD','Medical','Emergency'];
+    charts.anlTypeBar = new Chart($('anlTypeBar'), {
+      type:'bar', data:{labels:types, datasets:[
+        {label:'Approved',data:types.map(t=>data.filter(r=>r.LeaveType===t&&r.FinalStatus==='Approved').length),backgroundColor:'rgba(5,150,105,.7)',borderRadius:6},
+        {label:'Pending', data:types.map(t=>data.filter(r=>r.LeaveType===t&&['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length),backgroundColor:'rgba(217,119,6,.65)',borderRadius:6},
+        {label:'Rejected',data:types.map(t=>data.filter(r=>r.LeaveType===t&&r.FinalStatus==='Rejected').length),backgroundColor:'rgba(220,38,38,.65)',borderRadius:6}
+      ]}, options:chartDefaultOpts()
+    });
+    charts.anlStatusPie = new Chart($('anlStatusPie'), {
+      type:'doughnut', data:{labels:['Approved','HoD Review','Pending/Fwd','Rejected'],
+        datasets:[{data:[
+          data.filter(r=>r.FinalStatus==='Approved').length,
+          data.filter(r=>r.FinalStatus==='HoD Review').length,
+          data.filter(r=>['Pending','Forwarded'].includes(r.FinalStatus)).length,
+          data.filter(r=>r.FinalStatus==='Rejected').length
+        ],backgroundColor:['rgba(5,150,105,.8)','rgba(124,58,237,.8)','rgba(217,119,6,.8)','rgba(220,38,38,.8)'],borderWidth:0,hoverOffset:5}]
+      }, options:doughnutOpts()
+    });
+  } catch(e) { container.innerHTML = errBlock(e.message); }
+}
+
+function exportAnalysisPDF() {
+  const students = window._analysisData;
+  if (!students || !students.length) { toast('Run a search first','war'); return; }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF('l','mm','a4');
+  const pw = doc.internal.pageSize.getWidth();
+  doc.setFillColor(15,39,68); doc.rect(0,0,pw,24,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('VCET-IT | Mentor — Student-wise Leave Analysis', pw/2, 10, {align:'center'});
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | Mentor: ${user.name}`, pw/2, 18, {align:'center'});
+  const rows = students.map(s => {
+    const approved  = s.reqs.filter(r=>r.FinalStatus==='Approved').length;
+    const rejected  = s.reqs.filter(r=>r.FinalStatus==='Rejected').length;
+    const pending   = s.reqs.filter(r=>['Pending','Forwarded','HoD Review'].includes(r.FinalStatus)).length;
+    const leaveDays = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='Leave').reduce((a,r)=>a+(+r.TotalDays||0),0);
+    const odDays    = s.reqs.filter(r=>r.FinalStatus==='Approved'&&r.LeaveType==='OD').reduce((a,r)=>a+(+r.TotalDays||0),0);
+    return [s.RegNo,s.StudentName,s.Year,s.Section,s.reqs.length,leaveDays,odDays,approved,rejected,pending,s.reqs.length>0?Math.round(approved/s.reqs.length*100)+'%':'—'];
+  });
+  doc.autoTable({startY:28,head:[['Reg. No','Name','Year','Sec','Total','Leave Days','OD Days','Approved','Rejected','Pending','%']],body:rows,styles:{fontSize:8,cellPadding:2.5},headStyles:{fillColor:[15,39,68],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[240,247,255]}});
+  doc.save(`VCET_Mentor_Analysis_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('PDF downloaded!','suc');
+}
+
+/* ══════════════════════════════════════════
+   ABSENT
+══════════════════════════════════════════ */
+async function renderAbsent() {
+  const pb = $('pageBody');
+  try {
+    const mentorId = await getMentorId();
+    const res  = await api('mentor.getAbsents', { mentorId });
+    const rows = res.data || [];
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">Absent Management</div></div>
+        <button class="btn btn-dan" onclick="openAbsentModal()"><i class="fas fa-plus"></i> Add Absent Entry</button>
+      </div>
+      <div class="stats-grid col3 mb-14">
+        ${sCard('Total Entries',    rows.length, 'fa-calendar-times', 'sc-red')}
+        ${sCard('Parents Notified', rows.filter(r=>r.ParentNotified==='Yes').length, 'fa-bell', 'sc-green')}
+        ${sCard('Today',            rows.filter(r=>r.Date===todayISO()).length, 'fa-user-slash', 'sc-orange')}
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Entry ID</th><th>Date</th><th>Reg. No</th><th>Student</th><th>Year/Sec</th><th>Reason</th><th>Parent Notified</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${rows.length === 0
+              ? `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-calendar-check text-suc"></i><p>No absent entries found</p></div></td></tr>`
+              : rows.map(r => `<tr>
+                  <td class="fw7 text-dan">${r.EntryID}</td>
+                  <td>${fmtDate(r.Date)}</td><td>${r.RegNo}</td>
+                  <td class="fw6">${r.StudentName}</td>
+                  <td><span class="chip">${r.Year||'—'}-${r.Section||'—'}</span></td>
+                  <td>${r.Reason}</td>
+                  <td><span class="badge ${r.ParentNotified==='Yes'?'badge-approved':'badge-rejected'}">${r.ParentNotified}</span></td>
+                  <td><button class="btn btn-wa btn-xs" onclick="openWA('${r.RegNo}')"><i class="fab fa-whatsapp"></i> Alert</button></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   WA LOGS
+══════════════════════════════════════════ */
+async function renderWALogs() {
+  const pb = $('pageBody');
+  try {
+    const mentorId = await getMentorId();
+    const res  = await api('mentor.getWALogs', { mentorId });
+    const rows = res.data || [];
+    pb.innerHTML = `
+      <div class="sec-head">
+        <div><div class="sec-title">WhatsApp Notification Logs</div></div>
+        <span class="chip"><i class="fab fa-whatsapp" style="color:#25d366"></i> ${rows.length} messages</span>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Log ID</th><th>Date &amp; Time</th><th>Reg. No</th><th>Student</th><th>Parent Name</th><th>Number</th><th>Message</th><th>Status</th></tr></thead>
+            <tbody>
+              ${rows.length === 0
+              ? `<tr><td colspan="8"><div class="empty-state"><i class="fab fa-whatsapp" style="color:#25d366"></i><p>No WhatsApp logs yet</p></div></td></tr>`
+              : rows.map(r => `<tr>
+                  <td class="fw7" style="color:#25d366">${r.LogID}</td>
+                  <td style="font-size:12px">${r.DateTime}</td>
+                  <td>${r.RegNo}</td><td>${r.StudentName}</td><td>${r.ParentName}</td>
+                  <td><a href="tel:${r.ParentNumber}" style="color:var(--pri);font-weight:600">${r.ParentNumber}</a></td>
+                  <td style="font-size:12px;max-width:200px;white-space:pre-wrap">${r.Message}</td>
+                  <td><span class="badge ${r.Status==='Sent'?'badge-approved':'badge-rejected'}">${r.Status}</span></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (e) { pb.innerHTML = errBlock(e.message); }
+}
+
+/* ══════════════════════════════════════════
+   PROFILE
+══════════════════════════════════════════ */
+async function renderProfile() {
+  const pb = $('pageBody');
+  const mentorId = await getMentorId();
+  pb.innerHTML = `
+    <div class="sec-head"><div class="sec-title">My Profile</div></div>
+    <div style="max-width:600px">
+      <div class="card" style="overflow:hidden">
+        <div style="background:linear-gradient(135deg,var(--pri),var(--pri-light));padding:24px;display:flex;align-items:center;gap:16px;color:#fff">
+          <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0">${getInitials(user.name)}</div>
+          <div><div style="font-size:18px;font-weight:700">${user.name}</div><div style="font-size:12px;opacity:.8;margin-top:2px">Mentor • Information Technology</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item"><label>Login ID</label><p>${user.loginId}</p></div>
+            <div class="info-item"><label>Resolved MentorID</label><p><code>${mentorId}</code></p></div>
+            <div class="info-item"><label>Role</label><p>${user.role}</p></div>
+            <div class="info-item"><label>Department</label><p>${user.dept||'IT'}</p></div>
+          </div>
+          <div class="divider"></div>
+          <div class="flbl" style="margin-bottom:10px">Change Password</div>
+          <div class="fcols2">
+            <div class="fgrp"><label class="flbl">Current Password</label><input type="password" class="finp" id="cpOld" placeholder="Current password"></div>
+            <div class="fgrp"><label class="flbl">New Password</label><input type="password" class="finp" id="cpNew" placeholder="New password"></div>
+          </div>
+          <button class="btn btn-pri" onclick="changePassword()"><i class="fas fa-key"></i> Update Password</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function changePassword() {
+  const old = $('cpOld').value.trim(), nw = $('cpNew').value.trim();
+  if (!old || !nw) { toast('Fill both password fields','war'); return; }
+  if (nw.length < 4) { toast('Min 4 characters','war'); return; }
+  try {
+    showG('Updating…');
+    await api('changePassword', { loginId: user.loginId, oldPassword: old, newPassword: nw });
+    toast('Password updated!','suc'); $('cpOld').value=''; $('cpNew').value='';
+  } catch(e) { toast(e.message,'err'); } finally { hideG(); }
+}
+
+/* ══════════════════════════════════════════
+   ACTION HANDLERS
+══════════════════════════════════════════ */
+async function fetchFallback(reqId) {
+  const mentorId = await getMentorId();
+  const res = await api('mentor.getAllRequests', { mentorId });
+  return (res.data || []).find(r => r.RequestID === reqId);
+}
+
+async function doAct(reqId, action, role, remarks) {
+  showG((action==='Approved'?'Approving':'Rejecting')+' request…');
+  try {
+    const mentorId = await getMentorId();
+    await api('mentor.actOnRequest', { requestId:reqId, action, remarks, mentorId });
+    toast(action==='Approved'?'Approved — forwarded to Chairperson.':'Request rejected.', action==='Approved'?'suc':'inf');
+    loadPage(currentPage);
+  } catch(e) { toast(e.message,'err'); } finally { hideG(); }
+}
+
+/* ══════════════════════════════════════════
+   ABSENT MODAL
+══════════════════════════════════════════ */
+async function openAbsentModal() {
+  $('mAbsDate').value   = todayISO();
+  $('mAbsReason').value = '';
+  $('mAbsNotify').checked = false;
+  const sel = $('mAbsStu');
+  sel.innerHTML = '<option value="">Loading students…</option>';
+  openModal('mAbsent');
+  try {
+    const mentorId = await getMentorId();
+    if (!mentorStudents.length) {
+      const res = await api('mentor.getStudents', { mentorId });
+      mentorStudents = res.data || [];
+    }
+    sel.innerHTML = '<option value="">— Select Student —</option>' +
+      mentorStudents.map(s => `<option value="${s.RegNo}" data-name="${s.StudentName}" data-year="${s.Year}" data-sec="${s.Section}">${s.StudentName} (${s.RegNo})</option>`).join('');
+  } catch(e) { sel.innerHTML = '<option>Error loading students</option>'; }
+}
+
+async function submitAbsent() {
+  const sel = $('mAbsStu'), regNo = sel.value;
+  if (!regNo) { toast('Select a student','war'); return; }
+  const opt = sel.selectedOptions[0], date = $('mAbsDate').value;
+  if (!date) { toast('Select a date','war'); return; }
+  const reason = $('mAbsReason').value.trim() || 'Not informed';
+  const notify = $('mAbsNotify').checked;
+  showG('Saving absent entry…');
+  try {
+    const mentorId = await getMentorId();
+    await api('mentor.addAbsent', { mentorId, regNo, studentName:opt.dataset.name, year:opt.dataset.year, section:opt.dataset.sec, date, reason, parentNotified:notify });
+    if (notify) {
+      const stu = mentorStudents.find(s => s.RegNo === regNo);
+      if (stu) {
+        const msg = `Dear Parent, your ward ${stu.StudentName} (${regNo}) was absent on ${date} without prior information. Kindly contact the college. — VCET IT Dept.`;
+        await api('mentor.logWA', { sentBy:mentorId, regNo, studentName:stu.StudentName, parentName:stu.FatherName, parentNumber:stu.FatherMobile, message:msg });
+        window.open(`https://wa.me/91${stu.FatherMobile}?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+    }
+    closeModal('mAbsent');
+    toast(notify?'Entry added & WhatsApp opened!':'Absent entry added!','suc');
+    if (currentPage === 'absent') renderAbsent();
+  } catch(e) { toast(e.message,'err'); } finally { hideG(); }
+}
+
+/* ══════════════════════════════════════════
+   WHATSAPP MODAL
+══════════════════════════════════════════ */
+async function openWA(regNo) {
+  let stu = mentorStudents.find(s => s.RegNo === regNo);
+  if (!stu) {
+    try {
+      const mentorId = await getMentorId();
+      if (!mentorStudents.length) { const r = await api('mentor.getStudents',{mentorId}); mentorStudents=r.data||[]; }
+      stu = mentorStudents.find(s => s.RegNo === regNo);
+    } catch(e) {}
+  }
+  if (!stu) { toast('Student not found','err'); return; }
+  $('mWABody').innerHTML = `
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="contact-card">
+        <div class="cc-rel">Father</div><div class="cc-name">${stu.FatherName}</div>
+        <div class="cc-phone">${stu.FatherMobile}</div>
+        <div class="cc-actions">
+          <button class="btn btn-wa btn-sm" onclick="sendWA('${stu.FatherMobile}','${stu.StudentName}','${regNo}','${stu.FatherName}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          <a href="tel:${stu.FatherMobile}" class="btn btn-pri btn-sm"><i class="fas fa-phone"></i> Call</a>
+        </div>
+      </div>
+      <div class="contact-card">
+        <div class="cc-rel">Mother</div><div class="cc-name">${stu.MotherName}</div>
+        <div class="cc-phone">${stu.MotherMobile}</div>
+        <div class="cc-actions">
+          <button class="btn btn-wa btn-sm" onclick="sendWA('${stu.MotherMobile}','${stu.StudentName}','${regNo}','${stu.MotherName}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          <a href="tel:${stu.MotherMobile}" class="btn btn-pri btn-sm"><i class="fas fa-phone"></i> Call</a>
+        </div>
+      </div>
+    </div>
+    <div class="fgrp"><label class="flbl">Message</label>
+      <textarea class="ftxt" id="waMsg">Dear Parent, your ward ${stu.StudentName} (${regNo}) has been marked absent today without prior information. Please contact the college office immediately. — VCET IT Department.</textarea>
+    </div>`;
+  $('mWAFoot').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal('mWA')">Close</button>
+    <button class="btn btn-wa" onclick="sendBothWA('${stu.FatherMobile}','${stu.MotherMobile}','${stu.StudentName}','${regNo}','${stu.FatherName}','${stu.MotherName}')"><i class="fab fa-whatsapp"></i> Send to Both</button>`;
+  openModal('mWA');
+}
+
+async function sendWA(phone, stuName, regNo, parentName) {
+  const msg = ($('waMsg')||{}).value || `Dear Parent, your ward ${stuName} (${regNo}) needs attention.`;
+  try {
+    const mentorId = await getMentorId();
+    await api('mentor.logWA',{sentBy:mentorId,regNo,studentName:stuName,parentName,parentNumber:phone,message:msg});
+  } catch(e) {}
+  window.open(`https://wa.me/91${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+  toast('WhatsApp opened!','suc');
+}
+
+async function sendBothWA(p1,p2,stuName,regNo,n1,n2) {
+  await sendWA(p1,stuName,regNo,n1);
+  setTimeout(()=>sendWA(p2,stuName,regNo,n2), 1500);
+  closeModal('mWA');
+}
+
+/* ══ INIT ══ */
+initApp();
+</script>
+</body>
+</html>
