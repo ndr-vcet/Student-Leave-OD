@@ -9,7 +9,7 @@
    CONFIG — override in each page if needed
 ══════════════════════════════════════════ */
 if (typeof GAS_URL === 'undefined') {
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbzaqKnt-wRgVRJP8IJXIPIEWZPLtbOi7CvoYnDCMhoyP6z7QlVYOqmCD5TOwpCrxXkE9Q/exec';
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbx7pyVItkKrA_6HuRFPpfII-48YpzqePTG_1537ylqtVQ_pbLD3wobL8D5rAkQfJ8Bq7w/exec';
 }
 
 /* ══════════════════════════════════════════
