@@ -311,7 +311,7 @@ function generatePDF(data, reportType = 'all', userName = 'User', userRole = '')
 
   doc.autoTable({
     startY: sy + 5,
-    head: [['Req ID', 'Reg No', 'Student', 'Yr/Sec', 'Type', 'From', 'To', 'Days', 'Reason', 'Mentor', 'Chair', 'HoD', 'Status']],
+    head: [['Req ID', 'Reg No', 'Student', 'Yr/Sec', 'Type', 'From', 'To', 'Days', 'Reason', 'Mentor', 'Class Incharge', 'HoD', 'Status']],
     body: data.map(r => [
       r.RequestID, r.RegNo, r.StudentName,
       (r.Year || '?') + '-' + (r.Section || '?'),
