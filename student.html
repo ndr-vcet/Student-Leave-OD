@@ -383,7 +383,7 @@ async function renderMyReqs() {
         <div class="tbl-wrap">
           <table class="tbl" id="stuReqTbl">
             <thead>
-              <tr><th>ID</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Applied</th><th>Mentor</th><th>Chair</th><th>HoD</th><th>Status</th><th>Action</th></tr>
+              <tr><th>ID</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Applied</th><th>Mentor</th><th>Class IC</th><th>HoD</th><th>Status</th><th>Action</th></tr>
             </thead>
             <tbody>
               ${reqs.length === 0
@@ -566,7 +566,7 @@ function exportMyAnalysisPDF() {
   doc.text(`Student: ${userName} (${regNo}) | Generated: ${new Date().toLocaleString('en-IN')}`, pw/2, 18, {align:'center'});
   doc.autoTable({
     startY: 28,
-    head: [['ID','Type','From','To','Days','Reason','Mentor','Chair','HoD','Status']],
+    head: [['ID','Type','From','To','Days','Reason','Mentor','Class IC','HoD','Status']],
     body: reqs.map(r => [r.RequestID||'',r.LeaveType||'',r.FromDate||'',r.ToDate||'',r.TotalDays||0,(r.Reason||'').slice(0,40),r.MentorStatus||'',r.ChairpersonStatus||'',r.HoDStatus||'Pending',r.FinalStatus||'']),
     styles:{fontSize:7,cellPadding:2.2},
     headStyles:{fillColor:[15,39,68],textColor:255,fontStyle:'bold'},
