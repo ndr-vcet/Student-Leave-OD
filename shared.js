@@ -240,7 +240,7 @@ async function openReview(reqId, role, fetchFn) {
         <div class="tl-text">${req.MentorStatus || 'Pending'}${req.MentorRemarks ? ' — ' + req.MentorRemarks : ''}</div>
       </div>
       <div class="tl-item ${(req.ChairpersonStatus || 'pending').toLowerCase()}">
-        <div class="tl-date">Step 2 — Chairperson Review ${req.ChairpersonActionDate ? '• ' + fmtDate(req.ChairpersonActionDate) : ''}</div>
+        <div class="tl-date">Step 2 — Class Incharge Review ${req.ChairpersonActionDate ? '• ' + fmtDate(req.ChairpersonActionDate) : ''}</div>
         <div class="tl-text">${req.ChairpersonStatus || 'Pending'}${req.ChairpersonRemarks ? ' — ' + req.ChairpersonRemarks : ''}</div>
       </div>
       <div class="tl-item ${hodCls}">
@@ -255,7 +255,7 @@ async function openReview(reqId, role, fetchFn) {
     foot.innerHTML = `
       <button class="btn btn-ghost" onclick="closeModal('mReview')">Close</button>
       <button class="btn btn-dan" onclick="actFromReview('Rejected','mentor')"><i class="fas fa-times"></i> Reject</button>
-      <button class="btn btn-suc" onclick="actFromReview('Approved','mentor')"><i class="fas fa-check"></i> Approve → Chairperson</button>`;
+      <button class="btn btn-suc" onclick="actFromReview('Approved','mentor')"><i class="fas fa-check"></i> Approve → Class Incharge</button>`;
   } else if (role === 'chair') {
     foot.innerHTML = `
       <button class="btn btn-ghost" onclick="closeModal('mReview')">Close</button>
