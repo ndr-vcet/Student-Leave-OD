@@ -492,7 +492,7 @@ async function renderDash() {
         <div class="hod-alert-icon"><i class="fas fa-exclamation-circle"></i></div>
         <div class="hod-alert-text">
           <div class="hod-alert-title">${d.hodPending} Request(s) Pending Your Final Approval</div>
-          <div class="hod-alert-sub">Approved by Chairperson, awaiting your final authorization</div>
+          <div class="hod-alert-sub">Approved by Class incharge, awaiting your final authorization</div>
         </div>
         <button class="btn btn-hod btn-sm" onclick="nav('pending')" style="flex-shrink:0"><i class="fas fa-arrow-right"></i></button>
       </div>` : ''}
@@ -562,7 +562,7 @@ async function renderPending() {
       <div class="sec-head">
         <div>
           <div class="sec-title"><i class="fas fa-stamp text-hod"></i> Pending Final Approvals</div>
-          <div class="sec-sub">${reqs.length} request(s) from Chairperson waiting your decision</div>
+          <div class="sec-sub">${reqs.length} request(s) from Class Incharge waiting your decision</div>
         </div>
       </div>
 
@@ -571,7 +571,7 @@ async function renderPending() {
         <div class="hod-alert-icon"><i class="fas fa-clock"></i></div>
         <div class="hod-alert-text">
           <div class="hod-alert-title">${reqs.length} Action(s) Required</div>
-          <div class="hod-alert-sub">These have been approved by both Mentor and Chairperson. Your approval makes them official.</div>
+          <div class="hod-alert-sub">These have been approved by both Mentor and Class Incharge. Your approval makes them official.</div>
         </div>
         <button class="btn btn-suc btn-sm" onclick="approveAllPending()"><i class="fas fa-check-double"></i> Approve All</button>
       </div>` : ''}
@@ -590,7 +590,7 @@ async function renderPending() {
           <table class="tbl compact-tbl" id="pendTbl">
             <thead><tr>
               <th>ID</th><th>Student</th><th>Yr/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th>
-              <th>Reason</th><th>Mentor ✓</th><th>Chair ✓</th><th>Actions</th>
+              <th>Reason</th><th>Mentor ✓</th><th>Class incharge ✓</th><th>Actions</th>
             </tr></thead>
             <tbody>
               ${reqs.length === 0
@@ -1168,7 +1168,7 @@ async function renderConsolidated() {
         </div>
         <div class="tbl-wrap">
           <table class="tbl compact-tbl" id="consTbl">
-            <thead><tr><th>ID</th><th>Student</th><th>Reg. No</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Mentor</th><th>Chair</th><th>HoD</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>Student</th><th>Reg. No</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Mentor</th><th>Class incharge</th><th>HoD</th><th>Status</th></tr></thead>
             <tbody>
               ${all.length === 0
                 ? `<tr><td colspan="11"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
@@ -1354,7 +1354,7 @@ async function renderAllRequests() {
         </div>
         <div class="tbl-wrap">
           <table class="tbl compact-tbl" id="allTbl">
-            <thead><tr><th>ID</th><th>Student</th><th>Reg. No</th><th>Year/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Mentor</th><th>Chair</th><th>HoD</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID</th><th>Student</th><th>Reg. No</th><th>Year/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Mentor</th><th>Class Incharge</th><th>HoD</th><th>Status</th></tr></thead>
             <tbody>
               ${all.length === 0
                 ? `<tr><td colspan="12"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
@@ -1774,7 +1774,7 @@ function generateComprehensiveAcademicPDF(data, reportType, extraMeta) {
 
   doc.autoTable({
     startY: y,
-    head: [['S.No','Req. ID','Reg. No','Student Name','Yr/Sec','Type','Days','From','To','Mentor','Chair','HoD','Status']],
+    head: [['S.No','Req. ID','Reg. No','Student Name','Yr/Sec','Type','Days','From','To','Mentor','Class IC','HoD','Status']],
     body: data.map((r, idx) => [
       idx+1,
       r.RequestID,
