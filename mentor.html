@@ -931,7 +931,7 @@ async function doAct(reqId, action, role, remarks) {
   try {
     const mentorId = await getMentorId();
     await api('mentor.actOnRequest', { requestId:reqId, action, remarks, mentorId });
-    toast(action==='Approved'?'Approved — forwarded to Chairperson.':'Request rejected.', action==='Approved'?'suc':'inf');
+    toast(action==='Approved'?'Approved — forwarded to Class Incharge<.':'Request rejected.', action==='Approved'?'suc':'inf');
     loadPage(currentPage);
   } catch(e) { toast(e.message,'err'); } finally { hideG(); }
 }
