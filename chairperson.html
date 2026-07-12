@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>VCET-IT | Chairperson Portal</title>
+<title>VCET-IT | Class Incharge  Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
@@ -132,7 +132,7 @@
       </div>
       <div>
         <div style="font-weight:700;font-size:15px;color:var(--txt,#1a3c5e)">Sign Out</div>
-        <div style="font-size:12px;color:var(--txt2,#4a6080);margin-top:1px">Chairperson Portal</div>
+        <div style="font-size:12px;color:var(--txt2,#4a6080);margin-top:1px">Class Incharge Portal</div>
       </div>
     </div>
     <p style="font-size:13.5px;color:var(--txt2,#4a6080);margin:0 0 20px;line-height:1.5">Are you sure you want to sign out from the portal?</p>
@@ -155,7 +155,7 @@
       <div class="sb-logo">IT</div>
       <div>
         <div class="sb-brand-name">VCET Leave Portal</div>
-        <div class="sb-brand-sub">Chairperson Dashboard</div>
+        <div class="sb-brand-sub">Class Incharge Dashboard</div>
       </div>
     </div>
     <nav class="sidebar-nav" id="sidebarNav"></nav>
@@ -164,7 +164,7 @@
         <div class="sb-avatar" id="sbAvatar">C</div>
         <div style="min-width:0">
           <div class="sb-uname" id="sbName">—</div>
-          <div class="sb-urole" id="sbRole">Chairperson</div>
+          <div class="sb-urole" id="sbRole">Class Incharge</div>
         </div>
       </div>
     </div>
@@ -218,7 +218,7 @@ document.getElementById('drType').addEventListener('change', function(){
 });
 
 function initApp() {
-  buildSidebar(NAV_ITEMS, 'Chairperson', user, 0);
+  buildSidebar(NAV_ITEMS, 'Class Incharge', user, 0);
   nav('dash');
 }
 
@@ -265,12 +265,12 @@ async function renderDash() {
   try {
     const res = await api('chair.getDashboard');
     const d   = res.data;
-    buildSidebar(NAV_ITEMS, 'Chairperson', user, d.awaitingApproval);
+    buildSidebar(NAV_ITEMS, 'Class Incharge', user, d.awaitingApproval);
 
     pb.innerHTML = `
       <div class="welcome">
         <div class="welcome-z">
-          <div class="welcome-title">Chairperson Dashboard 📋</div>
+          <div class="welcome-title">Class Incharge Dashboard 📋</div>
           <div class="welcome-sub">${d.awaitingApproval} request(s) awaiting your approval.</div>
           <div class="welcome-date"><i class="fas fa-calendar-day"></i> ${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
           <div class="welcome-actions">
@@ -324,7 +324,7 @@ async function renderForwarded() {
     const res  = await api('chair.getForwarded');
     const reqs = res.data || [];
     window._pendingData = reqs;
-    buildSidebar(NAV_ITEMS, 'Chairperson', user, reqs.length);
+    buildSidebar(NAV_ITEMS, 'Class Incharge', user, reqs.length);
 
     pb.innerHTML = `
       <div class="sec-head">
@@ -380,7 +380,7 @@ async function renderChairAll() {
     pb.innerHTML = `
       <div class="sec-head">
         <div><div class="sec-title">All Requests</div><div class="sec-sub">${reqs.length} total records</div></div>
-        <button class="btn btn-acc" onclick="generatePDF(window._allData,'all','${user.name}','Chairperson')"><i class="fas fa-file-pdf"></i> Export PDF</button>
+        <button class="btn btn-acc" onclick="generatePDF(window._allData,'all','${user.name}','Class Incharge')"><i class="fas fa-file-pdf"></i> Export PDF</button>
       </div>
       <div class="card">
         <div class="filter-bar">
@@ -397,7 +397,7 @@ async function renderChairAll() {
         </div>
         <div class="tbl-wrap">
           <table class="tbl" id="chairAllTbl">
-            <thead><tr><th>ID</th><th>Student</th><th>Yr/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Mentor</th><th>Chairperson</th><th>HoD</th><th>Final</th><th>Action</th></tr></thead>
+            <thead><tr><th>ID</th><th>Student</th><th>Yr/Sec</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Mentor</th><th>Class Incharge</th><th>HoD</th><th>Final</th><th>Action</th></tr></thead>
             <tbody>
               ${reqs.length === 0
               ? `<tr><td colspan="13"><div class="empty-state"><i class="fas fa-inbox"></i><p>No requests found</p></div></td></tr>`
@@ -697,7 +697,7 @@ function exportAbsencesPDF() {
 
   doc.setFillColor(220,38,38); doc.rect(0,0,pw,24,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('VCET-IT | Chairperson — Absentee Records', pw/2, 10, {align:'center'});
+  doc.text('VCET-IT | Class Incharge — Absentee Records', pw/2, 10, {align:'center'});
   doc.setFontSize(8); doc.setFont('helvetica','normal');
   doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | By: ${user.name}`, pw/2, 18, {align:'center'});
 
@@ -709,7 +709,7 @@ function exportAbsencesPDF() {
     headStyles:{fillColor:[220,38,38],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[255,240,240]}
   });
-  doc.save(`VCET_Chair_AbsenteeRecords_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`VCET_CLassIC_AbsenteeRecords_${new Date().toISOString().split('T')[0]}.pdf`);
   toast('Absentee PDF downloaded!','suc');
 }
 
@@ -1350,7 +1350,7 @@ function exportAnalysisPDF() {
   const pw  = doc.internal.pageSize.getWidth();
   doc.setFillColor(15,39,68); doc.rect(0,0,pw,24,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('VCET-IT | Chairperson — Student-wise Leave Analysis', pw/2,10,{align:'center'});
+  doc.text('VCET-IT | Class Incharge — Student-wise Leave Analysis', pw/2,10,{align:'center'});
   doc.setFontSize(8); doc.setFont('helvetica','normal');
   doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | By: ${user.name}`, pw/2,18,{align:'center'});
   const rows = students.map(s=>{
@@ -1629,7 +1629,7 @@ async function renderProfile() {
       <div class="card" style="overflow:hidden">
         <div style="background:linear-gradient(135deg,var(--pri),var(--pri-light));padding:24px;display:flex;align-items:center;gap:16px;color:#fff">
           <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0">${getInitials(user.name)}</div>
-          <div><div style="font-size:18px;font-weight:700">${user.name}</div><div style="font-size:12px;opacity:.8;margin-top:2px">Chairperson • Information Technology</div></div>
+          <div><div style="font-size:18px;font-weight:700">${user.name}</div><div style="font-size:12px;opacity:.8;margin-top:2px">Class Incharge • Information Technology</div></div>
         </div>
         <div class="card-body">
           <div class="info-grid">
@@ -1687,7 +1687,7 @@ async function openWA(regNo) {
       </div>
     </div>
     <div class="fgrp"><label class="flbl">Message</label>
-      <textarea class="ftxt" id="waMsg">Dear Parent, this is regarding your ward ${stu.StudentName} (${regNo}). Please contact the IT Department for important discussion regarding their leave records. — VCET IT Chairperson.</textarea>
+      <textarea class="ftxt" id="waMsg">Dear Parent, this is regarding your ward ${stu.StudentName} (${regNo}). Please contact the IT Department for important discussion regarding their leave records. — VCET IT Class Incharge.</textarea>
     </div>`;
   $('mWAFoot').innerHTML = `
     <button class="btn btn-ghost" onclick="closeModal('mWA')">Close</button>
@@ -1716,7 +1716,7 @@ async function doAct(reqId, action, role, remarks) {
   showG((action==='Approved'?'Approving':'Rejecting')+' request…');
   try {
     await api('chair.actOnRequest', {requestId:reqId, action, remarks});
-    const msg = action==='Approved' ? 'Approved — forwarded to HoD for final sign-off.' : 'Rejected by Chairperson.';
+    const msg = action==='Approved' ? 'Approved — forwarded to HoD for final sign-off.' : 'Rejected by Class Incharge.';
     toast(msg, action==='Approved'?'suc':'inf');
     loadPage(currentPage);
   } catch(e) { toast(e.message,'err'); } finally { hideG(); }
